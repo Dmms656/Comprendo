@@ -1,7 +1,12 @@
 import express from "express";
+import twilio from "twilio";
 import { state } from "./state.js";
 import { generateQuestion } from "./services/generateQuestion.js";
-import { sendTelegramMessage } from "./lib/telegram.js";
+
+const twilioClient = twilio(
+  process.env.TWILIO_ACCOUNT_SID,
+  process.env.TWILIO_AUTH_TOKEN
+);
 
 export function createApp() {
   const app = express();
@@ -11,7 +16,7 @@ export function createApp() {
   app.get("/health", (req, res) => {
     res.json({
       ok: true,
-      service: "bot-telegram-comprendo"
+      service: "bot-whatsapp-comprendo"
     });
   });
 
@@ -27,21 +32,19 @@ export function createApp() {
   app.post("/start-class", async (req, res) => {
     try {
       const topic = String(req.body.topic || "").trim();
-      const studentChatId =
-        req.body.studentChatId ?? process.env.TELEGRAM_STUDENT_CHAT_ID;
+      const studentNumber = req.body.studentNumber || process.env.STUDENT_NUMBER;
 
       if (!topic) {
         return res.status(400).json({
           ok: false,
-          error: "El campo 'topic' es obligatorio. No se envió ninguna pregunta."
+          error: "El campo 'topic' es obligatorio. No se envio ninguna pregunta."
         });
       }
 
-      if (!studentChatId) {
+      if (!studentNumber) {
         return res.status(400).json({
           ok: false,
-          error:
-            "No se encontró el chat del estudiante (studentChatId o TELEGRAM_STUDENT_CHAT_ID)."
+          error: "No se encontro el numero del estudiante."
         });
       }
 
@@ -62,13 +65,17 @@ D) ${q.options.D}
 
 Responde solo con A, B, C o D.`;
 
-      const telegramResult = await sendTelegramMessage(studentChatId, body);
+      const msg = await twilioClient.messages.create({
+        from: process.env.TWILIO_WHATSAPP_NUMBER,
+        to: studentNumber,
+        body
+      });
 
       res.json({
         ok: true,
         topic,
         question: q.question,
-        telegramMessageId: telegramResult?.result?.message_id
+        twilioMessageSid: msg.sid
       });
     } catch (error) {
       console.error("ERROR /start-class:", error);
@@ -79,65 +86,47 @@ Responde solo con A, B, C o D.`;
     }
   });
 
-  app.post("/telegram", async (req, res) => {
-    const secret = process.env.TELEGRAM_WEBHOOK_SECRET;
-    if (secret) {
-      const got = req.headers["x-telegram-bot-api-secret-token"];
-      if (got !== secret) {
-        return res.sendStatus(403);
-      }
-    }
+  app.post("/whatsapp", async (req, res) => {
+    const twiml = new twilio.twiml.MessagingResponse();
 
     try {
-      const update = req.body;
-      const msg = update?.message || update?.edited_message;
-      const chatId = msg?.chat?.id;
-      const rawText = (msg?.text || "").trim();
-      const answer = rawText.toUpperCase();
-
-      if (!chatId) {
-        return res.sendStatus(200);
-      }
+      const from = req.body.From;
+      const answer = (req.body.Body || "").trim().toUpperCase();
 
       if (!state.question || !state.correctAnswer) {
-        await sendTelegramMessage(
-          chatId,
-          "No hay una pregunta activa en este momento."
-        );
-        return res.sendStatus(200);
+        twiml.message("No hay una pregunta activa en este momento.");
+        return res.type("text/xml").send(twiml.toString());
       }
 
       if (!["A", "B", "C", "D"].includes(answer)) {
-        await sendTelegramMessage(
-          chatId,
-          "Respuesta no válida. Responde solo con A, B, C o D."
-        );
-        return res.sendStatus(200);
+        twiml.message("Respuesta no valida. Responde solo con A, B, C o D.");
+        return res.type("text/xml").send(twiml.toString());
       }
 
       const correct = state.correctAnswer;
       const isCorrect = answer === correct;
 
       state.responses.push({
-        from: String(chatId),
+        from,
         answer,
         correct,
         isCorrect,
         at: new Date().toISOString()
       });
 
-      await sendTelegramMessage(
-        chatId,
+      twiml.message(
         isCorrect
           ? "Correcto ✅"
           : `Incorrecto ❌. La respuesta correcta era ${correct}`
       );
 
-      const teacherChatId = process.env.TELEGRAM_TEACHER_CHAT_ID;
-      if (teacherChatId) {
-        const reportText = `Nuevo reporte
+      if (process.env.TEACHER_NUMBER) {
+        await twilioClient.messages.create({
+          from: process.env.TWILIO_WHATSAPP_NUMBER,
+          to: process.env.TEACHER_NUMBER,
+          body: `Nuevo reporte
 
-Estudiante (chat): ${chatId}
+Estudiante: ${from}
 Pregunta: ${state.question.question}
 A) ${state.question.options.A}
 B) ${state.question.options.B}
@@ -146,27 +135,15 @@ D) ${state.question.options.D}
 
 Respuesta estudiante: ${answer}
 Respuesta correcta: ${correct} - ${state.question.options[correct]}
-Resultado: ${isCorrect ? "Correcto ✅" : "Incorrecto ❌"}`;
-
-        await sendTelegramMessage(teacherChatId, reportText);
+Resultado: ${isCorrect ? "Correcto ✅" : "Incorrecto ❌"}`
+        });
       }
 
-      return res.sendStatus(200);
+      return res.type("text/xml").send(twiml.toString());
     } catch (error) {
-      console.error("ERROR /telegram:", error);
-      try {
-        const chatId =
-          req.body?.message?.chat?.id || req.body?.edited_message?.chat?.id;
-        if (chatId) {
-          await sendTelegramMessage(
-            chatId,
-            "Hubo un error procesando tu respuesta."
-          );
-        }
-      } catch (_) {
-        /* ignore */
-      }
-      return res.sendStatus(200);
+      console.error("ERROR /whatsapp:", error);
+      twiml.message("Hubo un error procesando tu respuesta.");
+      return res.type("text/xml").send(twiml.toString());
     }
   });
 

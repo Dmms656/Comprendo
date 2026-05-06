@@ -1,7 +1,7 @@
 {
   "name": "comprendo",
   "version": "1.0.0",
-  "description": "Bot de Telegram para Comprendo (Star Lab) — cierre de clase y métricas",
+  "description": "Bot WhatsApp (Twilio) para Comprendo (Star Lab); migración a Telegram documentada",
   "main": "src/index.js",
   "type": "module",
   "scripts": {
@@ -11,7 +11,8 @@
   },
   "dependencies": {
     "dotenv": "^16.6.1",
-    "express": "^4.22.1"
+    "express": "^4.22.1",
+    "twilio": "^5.7.0"
   },
   "devDependencies": {
     "supertest": "^7.1.4"

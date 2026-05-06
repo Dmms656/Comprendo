@@ -1,0 +1,19 @@
+{
+  "name": "comprendo",
+  "version": "1.0.0",
+  "description": "Bot de Telegram para Comprendo (Star Lab) — cierre de clase y métricas",
+  "main": "src/index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js",
+    "test": "node --test tests/**/*.test.js"
+  },
+  "dependencies": {
+    "dotenv": "^16.6.1",
+    "express": "^4.22.1"
+  },
+  "devDependencies": {
+    "supertest": "^7.1.4"
+  }
+}

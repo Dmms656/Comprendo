@@ -6,7 +6,7 @@ En el roadmap está documentada una **migración futura a Telegram** (variables 
 
 ## Flujo resumido (implementación actual)
 
-1. El backend expone `POST /start-class` con el tema (`topic`) y el número del estudiante; genera una pregunta vía Groq y la envía por WhatsApp con Twilio.
+1. El backend expone `POST /start-class` con el tema (`topic`) y el número del estudiante; genera una pregunta vía Zhipu AI (GLM) y la envía por WhatsApp con Twilio.
 2. Twilio entrega las respuestas del alumno al webhook `POST /whatsapp` (configurado en el panel de Twilio / Sandbox).
 3. El estado en memoria guarda la pregunta activa y las respuestas para consulta rápida en desarrollo.
 

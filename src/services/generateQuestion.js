@@ -9,16 +9,29 @@ const fallback = {
   correct: "B"
 };
 
+const ZHIPU_CHAT_URL =
+  process.env.ZHIPU_API_URL ||
+  "https://open.bigmodel.cn/api/paas/v4/chat/completions";
+
 export async function generateQuestion(topic) {
   try {
-    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+    const apiKey = process.env.ZHIPU_API_KEY;
+    if (!apiKey) {
+      console.error("Zhipu AI: falta ZHIPU_API_KEY");
+      return fallback;
+    }
+
+    const model = process.env.ZHIPU_MODEL || "glm-4-flash";
+
+    const response = await fetch(ZHIPU_CHAT_URL, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
-        "Content-Type": "application/json"
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+        Accept: "application/json"
       },
       body: JSON.stringify({
-        model: "llama-3.1-8b-instant",
+        model,
         messages: [
           {
             role: "system",
@@ -32,21 +45,21 @@ Devuelve SOLO este formato JSON:
           }
         ],
         temperature: 0.2,
-        max_tokens: 180
+        max_tokens: 512
       })
     });
 
     const data = await response.json();
 
     if (!response.ok) {
-      console.error("Groq error:", JSON.stringify(data));
+      console.error("Zhipu AI error:", JSON.stringify(data));
       return fallback;
     }
 
     let text = data?.choices?.[0]?.message?.content;
 
     if (!text || typeof text !== "string") {
-      console.error("Groq content vacio:", JSON.stringify(data));
+      console.error("Zhipu AI contenido vacío:", JSON.stringify(data));
       return fallback;
     }
 
@@ -75,7 +88,7 @@ Devuelve SOLO este formato JSON:
       !parsed.options.D ||
       !["A", "B", "C", "D"].includes(parsed.correct)
     ) {
-      console.error("Formato invalido devuelto por Groq:", parsed);
+      console.error("Formato invalido devuelto por Zhipu AI:", parsed);
       return fallback;
     }
 

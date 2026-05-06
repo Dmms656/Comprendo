@@ -1,7 +1,7 @@
 {
   "name": "comprendo",
   "version": "1.0.0",
-  "description": "Bot WhatsApp (Twilio) para Comprendo (Star Lab); migración a Telegram documentada",
+  "description": "Bot WhatsApp (Twilio) para Comprendo (Star Lab); preguntas con Zhipu AI (GLM)",
   "main": "src/index.js",
   "type": "module",
   "scripts": {

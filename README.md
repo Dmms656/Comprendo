@@ -13,7 +13,7 @@
 | Runtime | [Node.js](https://nodejs.org/) |
 | HTTP API | [Express](https://expressjs.com/) |
 | Bot | [Twilio API for WhatsApp](https://www.twilio.com/whatsapp) |
-| IA (preguntas) | [Groq](https://groq.com/) API (`llama-3.1-8b-instant`) |
+| IA (preguntas) | [Zhipu AI](https://www.zhipuai.cn/) (API GLM, compatible OpenAI en `open.bigmodel.cn`) |
 | Pruebas | `node:test` + [supertest](https://github.com/ladjs/supertest) |
 
 En producción necesitas una URL pública HTTPS para el webhook de Twilio (`POST /whatsapp`) y credenciales del Sandbox o número de WhatsApp aprobado según tu cuenta.
@@ -31,7 +31,7 @@ Esa migración está **descrita** en `.env.example` (bloque comentado al final) 
 ## Características principales
 
 1. **Interacción por WhatsApp**: el estudiante responde en el mismo canal donde recibe la pregunta (Sandbox o número configurado en Twilio).
-2. **Preguntas contextualizadas**: el docente indica el tema (`topic`) y el servidor genera una pregunta coherente vía Groq (con respaldo local si la API falla).
+2. **Preguntas contextualizadas**: el docente indica el tema (`topic`) y el servidor genera una pregunta coherente vía **Zhipu AI (GLM)** (con respaldo local si la API falla).
 3. **Reporte rápido**: endpoint `GET /report` con la pregunta activa y las respuestas en memoria; opcionalmente notificación por WhatsApp al docente (`TEACHER_NUMBER`).
 
 ---
@@ -40,7 +40,7 @@ Esa migración está **descrita** en `.env.example` (bloque comentado al final) 
 
 - [Node.js](https://nodejs.org/) **18 o superior** (se usa `fetch` nativo y `node --watch` en desarrollo).
 - Cuenta en [Twilio](https://www.twilio.com/) con WhatsApp Sandbox o número habilitado (`TWILIO_*`).
-- Clave de API de [Groq Console](https://console.groq.com/) para generar preguntas (`GROQ_API_KEY`).
+- Clave de API de [Zhipu AI / BigModel](https://open.bigmodel.cn/) para generar preguntas (`ZHIPU_API_KEY`). Opcionalmente define `ZHIPU_MODEL` (por defecto `glm-4-flash`; otros modelos GLM según la documentación oficial).
 
 ---
 
@@ -122,7 +122,7 @@ Estos valores son **solo de ejemplo** para documentación y evaluación; debes s
 
 ```text
 /
-├── src/                 # Código fuente (Express, Twilio/WhatsApp, Groq)
+├── src/                 # Código fuente (Express, Twilio/WhatsApp, Zhipu AI)
 ├── docs/                # Documentación complementaria
 ├── tests/               # Pruebas automatizadas
 ├── .env.example         # Plantilla de variables (sin secretos reales)

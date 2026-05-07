@@ -12,6 +12,8 @@
 |------|------------|
 | Runtime | [Node.js](https://nodejs.org/) |
 | HTTP API | [Express](https://expressjs.com/) |
+| Panel docente | HTML/CSS/JS servido por Express |
+| Persistencia demo | Archivo JSON local (`data/comprendo.json`) |
 | Bot | [Twilio API for WhatsApp](https://www.twilio.com/whatsapp) |
 | IA (preguntas) | [Zhipu AI](https://www.zhipuai.cn/) (API GLM, compatible OpenAI en `open.bigmodel.cn`) |
 | Pruebas | `node:test` + [supertest](https://github.com/ladjs/supertest) |
@@ -33,6 +35,7 @@ Esa migración está **descrita** en `.env.example` (bloque comentado al final) 
 1. **Interacción por WhatsApp**: el estudiante responde en el mismo canal donde recibe la pregunta (Sandbox o número configurado en Twilio).
 2. **Preguntas contextualizadas**: el docente indica el tema (`topic`) y el servidor genera una pregunta coherente vía **Zhipu AI (GLM)** (con respaldo local si la API falla).
 3. **Reporte rápido**: endpoint `GET /report` con la pregunta activa y las respuestas en memoria; opcionalmente notificación por WhatsApp al docente (`TEACHER_NUMBER`).
+4. **Panel docente simple**: login demo, resumen principal, formulario para crear evaluaciones y API de preguntas de opción múltiple.
 
 ---
 
@@ -77,6 +80,13 @@ npm run dev
 
 Por defecto el servidor escucha en `http://localhost:3000`.
 
+Abre esa URL en el navegador para usar el panel docente. Credenciales demo:
+
+```text
+Email: docente@comprendo.local
+Contraseña: comprendo123
+```
+
 ### 5. Webhook de Twilio
 
 Configura en Twilio la URL pública de tu servidor para mensajes entrantes de WhatsApp apuntando a `POST /whatsapp` (y utiliza túnel HTTPS en local si pruebas desde fuera).
@@ -110,11 +120,12 @@ Estos valores son **solo de ejemplo** para documentación y evaluación; debes s
 | Concepto | Valor de ejemplo | Notas |
 |----------|------------------|--------|
 | URL del prototipo desplegado | `https://tu-servicio.onrender.com` | Sustituir por tu URL real cuando exista despliegue. |
+| Panel docente demo | `docente@comprendo.local` / `comprendo123` | Usuario local para pruebas del Sprint 2. |
 | WhatsApp estudiante (Twilio) | Formato `whatsapp:+...` según Sandbox | También puedes fijar `STUDENT_NUMBER` en `.env`. |
 | WhatsApp docente (opcional) | `TEACHER_NUMBER` | Recibe copia del informe por cada respuesta. |
 | Twilio | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_WHATSAPP_NUMBER` | Ver consola Twilio. |
 
-*(Usuario/contraseña de un dashboard web no aplica en esta versión: solo API REST + WhatsApp.)*
+La persistencia del panel es un archivo JSON local para mantener el prototipo sencillo. Puedes cambiar la ruta con `DATA_FILE`.
 
 ---
 
@@ -123,6 +134,7 @@ Estos valores son **solo de ejemplo** para documentación y evaluación; debes s
 ```text
 /
 ├── src/                 # Código fuente (Express, Twilio/WhatsApp, Zhipu AI)
+├── public/              # Panel docente simple
 ├── docs/                # Documentación complementaria
 ├── tests/               # Pruebas automatizadas
 ├── .env.example         # Plantilla de variables (sin secretos reales)

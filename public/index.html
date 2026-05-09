@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Comprendo | Panel docente</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <section class="hero">
+        <p class="eyebrow">Star Lab</p>
+        <h1>Comprendo</h1>
+        <p>
+          Panel docente simple para crear evaluaciones, registrar preguntas de
+          opcion multiple y revisar el avance del aula.
+        </p>
+      </section>
+
+      <section id="login-card" class="card">
+        <h2>Login docente</h2>
+        <p class="muted">
+          Demo: <strong>docente@comprendo.local</strong> / <strong>comprendo123</strong>
+        </p>
+        <form id="login-form" class="grid-form">
+          <label>
+            Email
+            <input id="email" type="email" required value="docente@comprendo.local" />
+          </label>
+          <label>
+            Contrasena
+            <input id="password" type="password" required value="comprendo123" />
+          </label>
+          <button type="submit">Ingresar</button>
+        </form>
+      </section>
+
+      <section id="panel" class="hidden">
+        <div class="panel-header">
+          <div>
+            <p class="eyebrow">Panel principal docente</p>
+            <h2 id="teacher-name">Docente</h2>
+          </div>
+          <button id="logout" type="button" class="secondary">Cerrar sesion</button>
+        </div>
+
+        <div class="stats">
+          <article>
+            <strong id="total-courses">0</strong>
+            <span>Cursos</span>
+          </article>
+          <article>
+            <strong id="total-evaluations">0</strong>
+            <span>Evaluaciones</span>
+          </article>
+          <article>
+            <strong id="total-questions">0</strong>
+            <span>Preguntas</span>
+          </article>
+          <article>
+            <strong id="total-answers">0</strong>
+            <span>Respuestas</span>
+          </article>
+        </div>
+
+        <section class="card">
+          <h2>Crear evaluacion</h2>
+          <form id="evaluation-form" class="grid-form">
+            <label>
+              Titulo
+              <input id="evaluation-title" required placeholder="Cierre de clase" />
+            </label>
+            <label>
+              Curso
+              <select id="course" required></select>
+            </label>
+            <label>
+              Tema
+              <input id="topic" required placeholder="Fracciones equivalentes" />
+            </label>
+            <label>
+              Descripcion
+              <textarea id="description" rows="3" placeholder="Objetivo de la evaluacion"></textarea>
+            </label>
+          </form>
+        </section>
+
+        <section class="card">
+          <div class="split-title">
+            <h2>Preguntas de opcion multiple</h2>
+            <button id="generate-question" type="button" class="secondary">
+              Generar con IA
+            </button>
+          </div>
+
+          <form id="question-form" class="question-form">
+            <label>
+              Enunciado
+              <textarea id="question-content" rows="3" required></textarea>
+            </label>
+            <div class="options-grid">
+              <label>A <input id="option-a" required /></label>
+              <label>B <input id="option-b" required /></label>
+              <label>C <input id="option-c" required /></label>
+              <label>D <input id="option-d" required /></label>
+            </div>
+            <label>
+              Respuesta correcta
+              <select id="correct-answer" required>
+                <option value="A">A</option>
+                <option value="B">B</option>
+                <option value="C">C</option>
+                <option value="D">D</option>
+              </select>
+            </label>
+            <button type="submit">Agregar pregunta</button>
+          </form>
+
+          <ul id="pending-questions" class="question-list"></ul>
+          <button id="save-evaluation" type="button">Guardar evaluacion</button>
+        </section>
+
+        <section class="card">
+          <h2>Evaluaciones guardadas</h2>
+          <div id="evaluations-list" class="evaluations-list"></div>
+        </section>
+      </section>
+
+      <p id="message" class="message" role="status"></p>
+    </main>
+    <script src="/app.js" type="module"></script>
+  </body>
+</html>

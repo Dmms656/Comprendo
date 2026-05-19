@@ -9,8 +9,9 @@ using Microsoft.IdentityModel.Tokens;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Debe cargarse al final para sobrescribir appsettings.* (credenciales en gitignore).
-builder.Configuration.AddJsonFile("appsettings.Local.json", optional: true, reloadOnChange: true);
+// Credenciales locales (gitignore). Ruta explícita al proyecto, no a bin/Debug.
+var localSettings = Path.Combine(builder.Environment.ContentRootPath, "appsettings.Local.json");
+builder.Configuration.AddJsonFile(localSettings, optional: true, reloadOnChange: true);
 
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);

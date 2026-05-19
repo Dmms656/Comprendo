@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Comprendo.Api/Comprendo.Api.csproj" />
+    <Project Path="src/Comprendo.Application/Comprendo.Application.csproj" />
+    <Project Path="src/Comprendo.Domain/Comprendo.Domain.csproj" />
+    <Project Path="src/Comprendo.Infrastructure/Comprendo.Infrastructure.csproj" />
+  </Folder>
+</Solution>

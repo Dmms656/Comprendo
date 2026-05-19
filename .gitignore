@@ -1,5 +1,12 @@
 node_modules/
 .env
+**/appsettings.Local.json
 data/
 npm-debug.log*
 .DS_Store
+
+# .NET
+backend/**/bin/
+backend/**/obj/
+backend/**/*.user
+backend/.vs/

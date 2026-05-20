@@ -26,7 +26,7 @@ public class CreatePreguntaCommandValidator : AbstractValidator<CreatePreguntaCo
     {
         RuleFor(x => x.IdLeccion).GreaterThan(0);
         RuleFor(x => x.Enunciado).NotEmpty();
-        RuleFor(x => x.TipoPregunta).Must(t => Enum.TryParse<TipoPregunta>(t, true, out _));
+        RuleFor(x => x.TipoPregunta).Must(t => Enum.TryParse<TipoPregunta>(t?.Replace("_", ""), true, out _));
         RuleFor(x => x.Puntaje).GreaterThan(0);
         RuleFor(x => x.Orden).GreaterThan(0);
     }
@@ -60,11 +60,14 @@ public class CreatePreguntaCommandHandler : IRequestHandler<CreatePreguntaComman
             throw new ForbiddenException();
         }
 
+        var leccion = await _leccionRepository.GetByIdAsync(request.IdLeccion, cancellationToken)
+            ?? throw new NotFoundException(nameof(Domain.Entities.Leccion), request.IdLeccion);
+
         var entity = new Pregunta
         {
             IdLeccion = request.IdLeccion,
             Enunciado = request.Enunciado,
-            TipoPregunta = Enum.Parse<TipoPregunta>(request.TipoPregunta, true),
+            TipoPregunta = Enum.Parse<TipoPregunta>(request.TipoPregunta.Replace("_", ""), true),
             RespuestaCorrecta = request.RespuestaCorrecta,
             Explicacion = request.Explicacion,
             Puntaje = request.Puntaje,
@@ -79,6 +82,10 @@ public class CreatePreguntaCommandHandler : IRequestHandler<CreatePreguntaComman
         };
 
         var created = await _preguntaRepository.CreateAsync(entity, cancellationToken);
+        
+        leccion.NumeroPreguntas += 1;
+        await _leccionRepository.UpdateAsync(leccion, cancellationToken);
+
         await _unitOfWork.SaveChangesAsync(cancellationToken);
         return created.ToDto();
     }

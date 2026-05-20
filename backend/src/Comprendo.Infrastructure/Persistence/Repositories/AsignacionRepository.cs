@@ -32,12 +32,18 @@ public class AsignacionRepository(ComprendoDbContext dbContext) : IAsignacionRep
                 IdMateria = m.IdMateria,
                 Materia = m.Nombre,
                 IdCurso = c.IdCurso,
-                Estado = dcm.Estado
+                Estado = dcm.Estado,
+                CodigoAcceso = dcm.CodigoAcceso
             }).ToListAsync(cancellationToken);
     }
 
     public Task<DocenteCursoMateria?> GetByIdAsync(int id, CancellationToken cancellationToken = default) =>
         dbContext.DocenteCursoMaterias.FirstOrDefaultAsync(x => x.IdDocenteCursoMateria == id, cancellationToken);
+
+    public Task<DocenteCursoMateria?> GetByCodigoAccesoAsync(string codigoAcceso, CancellationToken cancellationToken = default) =>
+        dbContext.DocenteCursoMaterias
+            .Include(x => x.Materia)
+            .FirstOrDefaultAsync(x => x.CodigoAcceso == codigoAcceso, cancellationToken);
 
     public Task<bool> ExistsAsync(
         int idDocente,

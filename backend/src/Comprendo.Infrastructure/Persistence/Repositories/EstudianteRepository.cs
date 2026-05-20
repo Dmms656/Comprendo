@@ -1,6 +1,7 @@
 using Comprendo.Application.Abstractions.Persistence;
 using Comprendo.Application.Common.Models;
 using Comprendo.Domain.Entities;
+using Comprendo.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
 
 namespace Comprendo.Infrastructure.Persistence.Repositories;
@@ -13,6 +14,28 @@ public class EstudianteRepository(ComprendoDbContext dbContext) : IEstudianteRep
         CancellationToken cancellationToken = default)
     {
         var query = dbContext.Estudiantes.Include(x => x.Usuario).OrderBy(x => x.IdEstudiante);
+        var total = await query.CountAsync(cancellationToken);
+        var items = await query
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync(cancellationToken);
+        return new PaginatedList<Estudiante>(items, total, pageNumber, pageSize);
+    }
+
+    public async Task<PaginatedList<Estudiante>> ListByMateriaAsync(
+        int idDocenteCursoMateria,
+        int pageNumber,
+        int pageSize,
+        CancellationToken cancellationToken = default)
+    {
+        var query = dbContext.Estudiantes
+            .Include(x => x.Usuario)
+            .Where(e => dbContext.EstudianteMaterias.Any(em =>
+                em.IdEstudiante == e.IdEstudiante &&
+                em.IdDocenteCursoMateria == idDocenteCursoMateria &&
+                em.Estado == EstadoAsignacion.Activo))
+            .OrderBy(x => x.IdEstudiante);
+
         var total = await query.CountAsync(cancellationToken);
         var items = await query
             .Skip((pageNumber - 1) * pageSize)
@@ -54,4 +77,19 @@ public class EstudianteRepository(ComprendoDbContext dbContext) : IEstudianteRep
         dbContext.EstudianteMaterias.Add(entity);
         return Task.FromResult(entity);
     }
+
+    public Task<Estudiante?> GetByTelegramChatIdAsync(string telegramChatId, CancellationToken cancellationToken = default) =>
+        dbContext.Estudiantes
+            .Include(x => x.Usuario)
+            .FirstOrDefaultAsync(x => x.TelegramChatId == telegramChatId, cancellationToken);
+
+    public Task<bool> IsEnrolledInCursoAsync(int idEstudiante, int idCurso, CancellationToken cancellationToken = default) =>
+        dbContext.EstudianteCursos.AnyAsync(x => x.IdEstudiante == idEstudiante && x.IdCurso == idCurso, cancellationToken);
+
+    public Task<bool> IsEnrolledInMateriaAsync(int idEstudiante, int idDocenteCursoMateria, CancellationToken cancellationToken = default) =>
+        dbContext.EstudianteMaterias.AnyAsync(
+            x => x.IdEstudiante == idEstudiante &&
+                 x.IdDocenteCursoMateria == idDocenteCursoMateria &&
+                 x.Estado == EstadoAsignacion.Activo,
+            cancellationToken);
 }

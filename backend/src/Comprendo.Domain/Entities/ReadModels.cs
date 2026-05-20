@@ -16,6 +16,7 @@ public class DocenteAsignacionDetalle
     public string Materia { get; set; } = string.Empty;
     public int IdCurso { get; set; }
     public EstadoAsignacion Estado { get; set; }
+    public string? CodigoAcceso { get; set; }
 }
 
 public class DashboardResumen

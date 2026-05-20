@@ -11,4 +11,5 @@ public record DocenteAsignacionDto(
     string Paralelo,
     int IdMateria,
     string Materia,
-    string Estado);
+    string Estado,
+    string? CodigoAcceso);

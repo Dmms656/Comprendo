@@ -66,7 +66,8 @@ public static class MappingExtensions
         entity.Paralelo,
         entity.IdMateria,
         entity.Materia,
-        entity.Estado.ToString().ToUpperInvariant());
+        entity.Estado.ToString().ToUpperInvariant(),
+        entity.CodigoAcceso);
 
     public static EstudianteDto ToDto(this Estudiante entity) => new(
         entity.IdEstudiante,

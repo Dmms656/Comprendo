@@ -8,6 +8,8 @@ public interface IAsignacionRepository
 
     Task<DocenteCursoMateria?> GetByIdAsync(int id, CancellationToken cancellationToken = default);
 
+    Task<DocenteCursoMateria?> GetByCodigoAccesoAsync(string codigoAcceso, CancellationToken cancellationToken = default);
+
     Task<bool> ExistsAsync(int idDocente, int idCurso, int idMateria, CancellationToken cancellationToken = default);
 
     Task<DocenteCursoMateria> CreateAsync(DocenteCursoMateria entity, CancellationToken cancellationToken = default);

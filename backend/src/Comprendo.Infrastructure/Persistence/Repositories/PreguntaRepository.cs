@@ -12,7 +12,7 @@ public class PreguntaRepository(ComprendoDbContext context) : IPreguntaRepositor
         await context.Preguntas
             .AsNoTracking()
             .Include(x => x.OpcionesPregunta.OrderBy(o => o.Literal))
-            .Where(x => x.IdLeccion == idLeccion)
+            .Where(x => x.IdLeccion == idLeccion && x.Estado == EstadoPregunta.Activa)
             .OrderBy(x => x.Orden)
             .ToListAsync(cancellationToken);
 

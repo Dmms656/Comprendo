@@ -5,7 +5,7 @@ using MediatR;
 
 namespace Comprendo.Application.Features.Estudiantes;
 
-public record ListEstudiantesQuery(int PageNumber = 1, int PageSize = 20)
+public record ListEstudiantesQuery(int PageNumber = 1, int PageSize = 20, int? IdDocenteCursoMateria = null)
     : IRequest<PaginatedList<EstudianteDto>>;
 
 public class ListEstudiantesQueryHandler : IRequestHandler<ListEstudiantesQuery, PaginatedList<EstudianteDto>>
@@ -18,7 +18,9 @@ public class ListEstudiantesQueryHandler : IRequestHandler<ListEstudiantesQuery,
         ListEstudiantesQuery request,
         CancellationToken cancellationToken)
     {
-        var page = await _repository.ListAsync(request.PageNumber, request.PageSize, cancellationToken);
+        var page = request.IdDocenteCursoMateria is int idMateria and > 0
+            ? await _repository.ListByMateriaAsync(idMateria, request.PageNumber, request.PageSize, cancellationToken)
+            : await _repository.ListAsync(request.PageNumber, request.PageSize, cancellationToken);
         var items = page.Items.Select(x => x.ToDto()).ToList();
         return new PaginatedList<EstudianteDto>(items, page.TotalCount, page.PageNumber, page.PageSize);
     }

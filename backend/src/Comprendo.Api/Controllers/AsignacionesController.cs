@@ -22,4 +22,11 @@ public class AsignacionesController(ISender sender) : ControllerBase
         [FromBody] CreateAsignacionCommand command,
         CancellationToken cancellationToken) =>
         Ok(await sender.Send(command, cancellationToken));
+
+    /// <summary>Genera un código de acceso para la asignación.</summary>
+    [HttpPost("{id:int}/generar-codigo")]
+    public async Task<ActionResult<string>> GenerarCodigo(
+        int id,
+        CancellationToken cancellationToken) =>
+        Ok(await sender.Send(new GenerarCodigoAsignacionCommand(id), cancellationToken));
 }

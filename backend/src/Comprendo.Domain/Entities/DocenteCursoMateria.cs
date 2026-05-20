@@ -10,6 +10,7 @@ public class DocenteCursoMateria
     public int IdMateria { get; set; }
     public EstadoAsignacion Estado { get; set; }
     public DateTimeOffset FechaAsignacion { get; set; }
+    public string? CodigoAcceso { get; set; }
 
     public Docente Docente { get; set; } = null!;
     public Curso Curso { get; set; } = null!;

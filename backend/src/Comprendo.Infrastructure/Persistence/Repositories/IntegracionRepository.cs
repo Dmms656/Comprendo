@@ -1,5 +1,6 @@
 using Comprendo.Application.Abstractions.Persistence;
 using Comprendo.Domain.Entities;
+using Microsoft.EntityFrameworkCore;
 
 namespace Comprendo.Infrastructure.Persistence.Repositories;
 
@@ -11,6 +12,17 @@ public class IntegracionRepository(ComprendoDbContext dbContext) : IIntegracionR
     {
         dbContext.EnviosTelegram.Add(entity);
         return Task.FromResult(entity);
+    }
+
+    public Task<EnvioTelegram?> GetEnvioByPreguntaEstudianteAsync(
+        int idPregunta,
+        int idEstudiante,
+        CancellationToken cancellationToken = default)
+    {
+        return dbContext.EnviosTelegram
+            .FirstOrDefaultAsync(
+                e => e.IdPregunta == idPregunta && e.IdEstudiante == idEstudiante,
+                cancellationToken);
     }
 
     public Task<RespuestaEstudiante> RegisterRespuestaAsync(

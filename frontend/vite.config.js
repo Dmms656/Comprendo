@@ -10,6 +10,21 @@ export default defineConfig({
         changeOrigin: true,
         secure: false
       },
+      '/api/bot-info': {
+        target: 'http://localhost:3000',
+        changeOrigin: true,
+        secure: false
+      },
+      '/start-class': {
+        target: 'http://localhost:3000',
+        changeOrigin: true,
+        secure: false
+      },
+      '/start-evaluation': {
+        target: 'http://localhost:3000',
+        changeOrigin: true,
+        secure: false
+      },
       '/api': {
         target: 'http://localhost:5253',
         changeOrigin: true,

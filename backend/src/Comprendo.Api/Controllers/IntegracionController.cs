@@ -42,4 +42,11 @@ public class IntegracionController(ISender sender) : ControllerBase
         await sender.Send(command, cancellationToken);
         return NoContent();
     }
+
+    /// <summary>Registra o vincula un estudiante usando un código de materia.</summary>
+    [HttpPost("vincular-estudiante-codigo")]
+    public async Task<ActionResult<VincularEstudianteCodigoResult>> VincularEstudianteCodigo(
+        [FromBody] VincularEstudianteCodigoCommand command,
+        CancellationToken cancellationToken) =>
+        Ok(await sender.Send(command, cancellationToken));
 }

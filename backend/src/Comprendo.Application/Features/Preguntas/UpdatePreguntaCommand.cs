@@ -27,7 +27,7 @@ public class UpdatePreguntaCommandValidator : AbstractValidator<UpdatePreguntaCo
     {
         RuleFor(x => x.Id).GreaterThan(0);
         RuleFor(x => x.Enunciado).NotEmpty();
-        RuleFor(x => x.TipoPregunta).Must(t => Enum.TryParse<TipoPregunta>(t, true, out _));
+        RuleFor(x => x.TipoPregunta).Must(t => Enum.TryParse<TipoPregunta>(t?.Replace("_", ""), true, out _));
         RuleFor(x => x.Estado).Must(e => Enum.TryParse<EstadoPregunta>(e, true, out _));
         RuleFor(x => x.Puntaje).GreaterThan(0);
         RuleFor(x => x.Orden).GreaterThan(0);
@@ -63,7 +63,7 @@ public class UpdatePreguntaCommandHandler : IRequestHandler<UpdatePreguntaComman
             ?? throw new NotFoundException(nameof(Pregunta), request.Id);
 
         entity.Enunciado = request.Enunciado;
-        entity.TipoPregunta = Enum.Parse<TipoPregunta>(request.TipoPregunta, true);
+        entity.TipoPregunta = Enum.Parse<TipoPregunta>(request.TipoPregunta.Replace("_", ""), true);
         entity.RespuestaCorrecta = request.RespuestaCorrecta;
         entity.Explicacion = request.Explicacion;
         entity.Puntaje = request.Puntaje;

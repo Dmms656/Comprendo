@@ -16,8 +16,11 @@ public class EstudiantesController(ISender sender) : ControllerBase
     public async Task<ActionResult<PaginatedList<EstudianteDto>>> List(
         [FromQuery] int pageNumber = 1,
         [FromQuery] int pageSize = 20,
+        [FromQuery] int? idDocenteCursoMateria = null,
         CancellationToken cancellationToken = default) =>
-        Ok(await sender.Send(new ListEstudiantesQuery(pageNumber, pageSize), cancellationToken));
+        Ok(await sender.Send(
+            new ListEstudiantesQuery(pageNumber, pageSize, idDocenteCursoMateria),
+            cancellationToken));
 
     [HttpGet("{id:int}")]
     public async Task<ActionResult<EstudianteDto>> GetById(int id, CancellationToken cancellationToken) =>

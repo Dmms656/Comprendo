@@ -4,8 +4,8 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Comprendo | Panel docente</title>
-    <script type="module" crossorigin src="/assets/index-dXn5ToL1.js"></script>
-    <link rel="stylesheet" crossorigin href="/assets/index-CWaR1_wF.css">
+    <script type="module" crossorigin src="/assets/index-1BlptteD.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-BHm9GY9E.css">
   </head>
   <body>
     <main class="shell">
@@ -119,6 +119,72 @@
 
           <ul id="pending-questions" class="question-list"></ul>
           <button id="save-evaluation" type="button">Guardar evaluacion</button>
+        </section>
+
+        <section class="card">
+          <h2>Códigos de Acceso (Telegram)</h2>
+          <p class="muted">
+            Genera códigos de acceso para que los estudiantes se registren e inscriban de forma autónoma en tus asignaturas a través de Telegram.
+          </p>
+          <div id="codes-container" class="codes-grid">
+            <p class="muted">Cargando códigos de acceso...</p>
+          </div>
+        </section>
+
+        <section class="card">
+          <h2>Gestión de Estudiantes</h2>
+          <div class="student-forms-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-bottom: 2rem; margin-top: 1rem;">
+            <div>
+              <h3 style="margin-top: 0;">Registrar nuevo estudiante</h3>
+              <form id="student-register-form" class="grid-form">
+                <label>
+                  Nombres
+                  <input id="student-nombres" required placeholder="Juan Carlos" />
+                </label>
+                <label>
+                  Apellidos
+                  <input id="student-apellidos" required placeholder="Pérez López" />
+                </label>
+                <label>
+                  Correo electrónico
+                  <input id="student-correo" type="email" required placeholder="juan.perez@estudiante.local" />
+                </label>
+                <label>
+                  Código de Estudiante (opcional)
+                  <input id="student-codigo" placeholder="EST-003" />
+                </label>
+                <label style="grid-column: 1 / -1;">
+                  Teléfono de Telegram (obligatorio)
+                  <input id="student-telefono" required placeholder="+593991234567" />
+                </label>
+                <button type="submit">Registrar Estudiante</button>
+              </form>
+            </div>
+
+            <div>
+              <h3 style="margin-top: 0;">Matricular estudiante en asignatura</h3>
+              <form id="student-enroll-form" class="grid-form">
+                <label style="grid-column: 1 / -1;">
+                  Estudiante
+                  <select id="enroll-student-select" required>
+                    <option value="">Selecciona un estudiante...</option>
+                  </select>
+                </label>
+                <label style="grid-column: 1 / -1;">
+                  Materia / Paralelo
+                  <select id="enroll-course-select" required>
+                    <option value="">Selecciona una materia...</option>
+                  </select>
+                </label>
+                <button type="submit">Matricular Estudiante</button>
+              </form>
+            </div>
+          </div>
+
+          <h3>Estudiantes registrados y matriculados</h3>
+          <ul id="students-list" class="question-list" style="margin-top: 1rem;">
+            <li>Cargando estudiantes...</li>
+          </ul>
         </section>
 
         <section class="card">

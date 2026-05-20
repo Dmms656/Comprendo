@@ -117,6 +117,7 @@ CREATE TABLE docente_curso_materia (
     estado                      VARCHAR(20) NOT NULL DEFAULT 'ACTIVO'
         CHECK (estado IN ('ACTIVO', 'INACTIVO')),
     fecha_asignacion            TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    codigo_acceso               VARCHAR(50),
     CONSTRAINT fk_dcm_docente
         FOREIGN KEY (id_docente) REFERENCES docentes (id_docente)
         ON DELETE RESTRICT,
@@ -386,6 +387,7 @@ CREATE INDEX idx_cursos_anio ON cursos (id_anio_lectivo);
 CREATE INDEX idx_dcm_docente ON docente_curso_materia (id_docente);
 CREATE INDEX idx_dcm_curso ON docente_curso_materia (id_curso);
 CREATE INDEX idx_dcm_materia ON docente_curso_materia (id_materia);
+CREATE UNIQUE INDEX uq_docente_curso_materia_codigo_acceso ON docente_curso_materia (codigo_acceso) WHERE codigo_acceso IS NOT NULL;
 
 CREATE INDEX idx_estudiante_materia_dcm ON estudiante_materia (id_docente_curso_materia);
 CREATE INDEX idx_estudiante_materia_estudiante ON estudiante_materia (id_estudiante);
@@ -432,7 +434,7 @@ DECLARE
     v_incorrectas     INT;
     v_puntaje_total   NUMERIC(6, 2);
     v_puntaje_obtenido NUMERIC(6, 2);
-    v_porcentaje      NUMERIC(5, 2);
+    v_porcentaje      NUMERIC(10, 2); -- Safety: use larger numeric type to prevent typmod overflow during calculation
     v_estado          VARCHAR(20);
     v_fecha_inicio    TIMESTAMPTZ;
     v_fecha_fin       TIMESTAMPTZ;
@@ -465,7 +467,8 @@ BEGIN
     IF v_total = 0 THEN
         v_porcentaje := 0;
     ELSE
-        v_porcentaje := ROUND((v_puntaje_obtenido / NULLIF(v_puntaje_total, 0)) * 100, 2);
+        -- Safety: cap percentage at 100.00 to respect database check constraints and logical limits
+        v_porcentaje := LEAST(ROUND((v_puntaje_obtenido / NULLIF(v_puntaje_total, 0)) * 100, 2), 100.00);
     END IF;
 
     IF v_respondidas = 0 THEN
@@ -499,8 +502,9 @@ BEGIN
         v_correctas,
         v_incorrectas,
         v_puntaje_total,
-        v_puntaje_obtenido,
-        COALESCE(v_porcentaje, 0),
+        -- Safety: cap puntaje_obtenido at puntaje_total as well to prevent logical issues
+        LEAST(v_puntaje_obtenido, v_puntaje_total),
+        v_porcentaje::NUMERIC(5, 2),
         v_estado,
         v_fecha_inicio,
         CASE WHEN v_estado = 'COMPLETADO' THEN v_fecha_fin ELSE NULL END

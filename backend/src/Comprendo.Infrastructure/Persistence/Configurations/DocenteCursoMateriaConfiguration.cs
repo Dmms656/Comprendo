@@ -18,6 +18,7 @@ public class DocenteCursoMateriaConfiguration : IEntityTypeConfiguration<Docente
         builder.Property(x => x.IdMateria).HasColumnName("id_materia");
         builder.Property(x => x.Estado).HasColumnName("estado").HasMaxLength(20).HasDbEnumConversion<EstadoAsignacion>();
         builder.Property(x => x.FechaAsignacion).HasColumnName("fecha_asignacion");
+        builder.Property(x => x.CodigoAcceso).HasColumnName("codigo_acceso").HasMaxLength(50);
 
         builder.HasIndex(x => new { x.IdDocente, x.IdCurso, x.IdMateria }).IsUnique();
 

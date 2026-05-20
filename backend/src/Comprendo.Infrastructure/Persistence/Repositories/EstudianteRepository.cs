@@ -12,7 +12,7 @@ public class EstudianteRepository(ComprendoDbContext dbContext) : IEstudianteRep
         int pageSize,
         CancellationToken cancellationToken = default)
     {
-        var query = dbContext.Estudiantes.OrderBy(x => x.IdEstudiante);
+        var query = dbContext.Estudiantes.Include(x => x.Usuario).OrderBy(x => x.IdEstudiante);
         var total = await query.CountAsync(cancellationToken);
         var items = await query
             .Skip((pageNumber - 1) * pageSize)
@@ -22,7 +22,10 @@ public class EstudianteRepository(ComprendoDbContext dbContext) : IEstudianteRep
     }
 
     public Task<Estudiante?> GetByIdAsync(int id, CancellationToken cancellationToken = default) =>
-        dbContext.Estudiantes.FirstOrDefaultAsync(x => x.IdEstudiante == id, cancellationToken);
+        dbContext.Estudiantes.Include(x => x.Usuario).FirstOrDefaultAsync(x => x.IdEstudiante == id, cancellationToken);
+
+    public Task<Estudiante?> GetByTelefonoAsync(string telefono, CancellationToken cancellationToken = default) =>
+        dbContext.Estudiantes.FirstOrDefaultAsync(x => x.TelefonoTelegram == telefono, cancellationToken);
 
     public Task<Estudiante> CreateAsync(Estudiante entity, CancellationToken cancellationToken = default)
     {

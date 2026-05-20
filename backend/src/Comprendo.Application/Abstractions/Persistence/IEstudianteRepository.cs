@@ -9,6 +9,8 @@ public interface IEstudianteRepository
 
     Task<Estudiante?> GetByIdAsync(int id, CancellationToken cancellationToken = default);
 
+    Task<Estudiante?> GetByTelefonoAsync(string telefono, CancellationToken cancellationToken = default);
+
     Task<Estudiante> CreateAsync(Estudiante entity, CancellationToken cancellationToken = default);
 
     Task UpdateAsync(Estudiante entity, CancellationToken cancellationToken = default);

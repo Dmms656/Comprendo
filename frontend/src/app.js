@@ -1,7 +1,8 @@
 const state = {
   token: localStorage.getItem("comprendoToken"),
-  teacher: null,
+  teacher: JSON.parse(localStorage.getItem("comprendoTeacher") || "null"),
   courses: [],
+  students: [],
   pendingQuestions: []
 };
 
@@ -31,10 +32,17 @@ async function api(path, options = {}) {
     ...options,
     headers
   });
-  const data = await response.json();
+  
+  const contentType = response.headers.get("content-type");
+  let data = {};
+  if (contentType && contentType.includes("application/json")) {
+    data = await response.json();
+  } else {
+    data = { text: await response.text() };
+  }
 
   if (!response.ok || data.ok === false) {
-    throw new Error(data.error || "No se pudo completar la solicitud.");
+    throw new Error(data.error || data.title || "No se pudo completar la solicitud.");
   }
 
   return data;
@@ -42,9 +50,10 @@ async function api(path, options = {}) {
 
 function setSession(session) {
   state.token = session.token;
-  state.teacher = session.docente;
-  state.courses = session.cursos || [];
+  state.teacher = session.usuario;
+  state.courses = [];
   localStorage.setItem("comprendoToken", session.token);
+  localStorage.setItem("comprendoTeacher", JSON.stringify(session.usuario));
 }
 
 function clearSession() {
@@ -53,6 +62,7 @@ function clearSession() {
   state.courses = [];
   state.pendingQuestions = [];
   localStorage.removeItem("comprendoToken");
+  localStorage.removeItem("comprendoTeacher");
   $("#panel").classList.add("hidden");
   $("#login-card").classList.remove("hidden");
 }
@@ -63,8 +73,8 @@ function renderCourses(courses) {
 
   for (const course of courses) {
     const option = document.createElement("option");
-    option.value = course.id;
-    option.textContent = `${course.nombreCurso} (${course.periodoLectivo})`;
+    option.value = course.idDocenteCursoMateria;
+    option.textContent = `${course.materia} - ${course.nivel} ${course.paralelo} (${course.anioLectivo})`;
     select.appendChild(option);
   }
 }
@@ -112,8 +122,8 @@ function renderEvaluations(evaluations) {
 
     item.className = "evaluation-item";
     title.textContent = evaluation.titulo;
-    details.textContent = `${evaluation.cursoNombre} - ${evaluation.temaTitulo}`;
-    meta.textContent = `${evaluation.totalPreguntas} pregunta(s) | ${new Date(evaluation.fechaCreacion).toLocaleString()}`;
+    details.textContent = evaluation.tema || 'Tema';
+    meta.textContent = `${evaluation.numeroPreguntas || 0} pregunta(s) | ${new Date(evaluation.fechaCreacion).toLocaleString()}`;
 
     item.append(title, details, meta);
     list.appendChild(item);
@@ -150,21 +160,31 @@ function resetQuestionForm() {
 }
 
 async function loadPanel() {
-  const dashboard = await api("/api/panel");
-  const evaluations = await api("/api/evaluations");
+  const dashboard = await api("/api/dashboard");
+  const asignaciones = await api("/api/asignaciones");
+  const lecciones = await api("/api/lecciones");
+  
+  try {
+    const estudiantesData = await api("/api/estudiantes?pageSize=100");
+    state.students = estudiantesData.items || [];
+  } catch (error) {
+    console.error("Error al cargar estudiantes:", error);
+    state.students = [];
+  }
 
-  state.teacher = dashboard.docente;
-  state.courses = dashboard.cursos;
+  state.courses = asignaciones || [];
 
-  $("#teacher-name").textContent = dashboard.docente.nombreCompleto;
-  $("#total-courses").textContent = dashboard.resumen.totalCursos;
-  $("#total-evaluations").textContent = dashboard.resumen.totalEvaluaciones;
-  $("#total-questions").textContent = dashboard.resumen.totalPreguntas;
-  $("#total-answers").textContent = dashboard.resumen.totalRespuestas;
+  $("#teacher-name").textContent = `${state.teacher.nombres} ${state.teacher.apellidos}`;
+  $("#total-courses").textContent = dashboard.totalAsignaciones;
+  $("#total-evaluations").textContent = dashboard.totalLecciones;
+  $("#total-questions").textContent = dashboard.preguntasPendientesEnvio;
+  $("#total-answers").textContent = dashboard.totalEstudiantes;
 
-  renderCourses(dashboard.cursos);
-  renderEvaluations(evaluations.evaluaciones);
+  renderCourses(state.courses);
+  populateEnrollCourseSelect();
+  renderEvaluations(lecciones.items || lecciones);
   renderQuestions();
+  renderStudents();
 
   $("#login-card").classList.add("hidden");
   $("#panel").classList.remove("hidden");
@@ -177,7 +197,7 @@ $("#login-form").addEventListener("submit", async (event) => {
     const session = await api("/api/auth/login", {
       method: "POST",
       body: JSON.stringify({
-        email: $("#email").value,
+        correo: $("#email").value,
         password: $("#password").value
       })
     });
@@ -250,16 +270,37 @@ $("#save-evaluation").addEventListener("click", async () => {
   }
 
   try {
-    await api("/api/evaluations", {
+    const leccion = await api("/api/lecciones", {
       method: "POST",
       body: JSON.stringify({
+        idDocenteCursoMateria: Number(courseId),
         titulo: title,
-        cursoId,
-        temaTitulo: topic,
         descripcion: $("#description").value,
-        preguntas: state.pendingQuestions
+        tema: topic,
+        creadaConIa: false
       })
     });
+
+    for (let i = 0; i < state.pendingQuestions.length; i++) {
+      const q = state.pendingQuestions[i];
+      await api(`/api/lecciones/${leccion.idLeccion}/preguntas`, {
+        method: "POST",
+        body: JSON.stringify({
+          enunciado: q.contenido,
+          tipoPregunta: "OPCION_MULTIPLE",
+          respuestaCorrecta: q.claveRespuesta,
+          explicacion: "",
+          puntaje: 10.0,
+          orden: i + 1,
+          opciones: [
+            { literal: "A", texto: q.opciones.A, esCorrecta: q.claveRespuesta === "A" },
+            { literal: "B", texto: q.opciones.B, esCorrecta: q.claveRespuesta === "B" },
+            { literal: "C", texto: q.opciones.C, esCorrecta: q.claveRespuesta === "C" },
+            { literal: "D", texto: q.opciones.D, esCorrecta: q.claveRespuesta === "D" }
+          ]
+        })
+      });
+    }
 
     state.pendingQuestions = [];
     $("#evaluation-form").reset();
@@ -271,8 +312,152 @@ $("#save-evaluation").addEventListener("click", async () => {
   }
 });
 
+function populateEnrollCourseSelect() {
+  const select = $("#enroll-course-select");
+  select.innerHTML = '<option value="">Selecciona una materia...</option>';
+  
+  state.courses.forEach((course) => {
+    const option = document.createElement("option");
+    option.value = course.idDocenteCursoMateria;
+    option.dataset.idCurso = course.idCurso;
+    option.textContent = `${course.materia} - ${course.nivel} ${course.paralelo}`;
+    select.appendChild(option);
+  });
+}
+
+function renderStudents() {
+  const list = $("#students-list");
+  list.innerHTML = "";
+
+  const enrollStudentSelect = $("#enroll-student-select");
+  const originalStudentValue = enrollStudentSelect.value;
+  enrollStudentSelect.innerHTML = '<option value="">Selecciona un estudiante...</option>';
+
+  if (!state.students.length) {
+    list.innerHTML = "<li>Aún no hay estudiantes registrados.</li>";
+    return;
+  }
+
+  state.students.forEach((student) => {
+    const item = document.createElement("li");
+    item.style.display = "flex";
+    item.style.justifyContent = "space-between";
+    item.style.alignItems = "center";
+    item.style.padding = "0.75rem";
+    item.style.borderBottom = "1px solid #eef2f5";
+
+    const info = document.createElement("div");
+    const name = document.createElement("strong");
+    name.textContent = `${student.nombres || "Sin Nombre"} ${student.apellidos || ""}`;
+    
+    const details = document.createElement("p");
+    details.style.margin = "0.2rem 0 0";
+    details.style.fontSize = "0.85rem";
+    details.style.color = "#61758a";
+    details.textContent = `Correo: ${student.correo || "N/A"} | Teléfono Telegram: ${student.telefonoTelegram} | Código: ${student.codigoEstudiante || "N/A"}`;
+    
+    if (student.telegramChatId) {
+      const tag = document.createElement("span");
+      tag.style.background = "#20bfa3";
+      tag.style.color = "white";
+      tag.style.padding = "2px 6px";
+      tag.style.borderRadius = "4px";
+      tag.style.fontSize = "0.7rem";
+      tag.style.marginLeft = "8px";
+      tag.textContent = "Vinculado";
+      name.appendChild(tag);
+    } else {
+      const tag = document.createElement("span");
+      tag.style.background = "#e0a96d";
+      tag.style.color = "white";
+      tag.style.padding = "2px 6px";
+      tag.style.borderRadius = "4px";
+      tag.style.fontSize = "0.7rem";
+      tag.style.marginLeft = "8px";
+      tag.textContent = "Pendiente Bot";
+      name.appendChild(tag);
+    }
+
+    info.append(name, details);
+    item.appendChild(info);
+    list.appendChild(item);
+
+    const option = document.createElement("option");
+    option.value = student.idEstudiante;
+    option.textContent = `${student.nombres} ${student.apellidos} (${student.telefonoTelegram})`;
+    enrollStudentSelect.appendChild(option);
+  });
+
+  enrollStudentSelect.value = originalStudentValue;
+}
+
+$("#student-register-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+
+  const nombres = $("#student-nombres").value.trim();
+  const apellidos = $("#student-apellidos").value.trim();
+  const correo = $("#student-correo").value.trim();
+  const codigo = $("#student-codigo").value.trim() || null;
+  const telefono = $("#student-telefono").value.trim();
+
+  try {
+    await api("/api/estudiantes", {
+      method: "POST",
+      body: JSON.stringify({
+        nombres,
+        apellidos,
+        correo,
+        codigoEstudiante: codigo,
+        telefonoTelegram: telefono,
+        telegramChatId: null,
+        telegramUsername: null
+      })
+    });
+
+    $("#student-register-form").reset();
+    showMessage("Estudiante registrado con éxito.");
+    await loadPanel();
+  } catch (error) {
+    showMessage(error.message, true);
+  }
+});
+
+$("#student-enroll-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+
+  const studentId = $("#enroll-student-select").value;
+  const courseSelect = $("#enroll-course-select");
+  const selectedOption = courseSelect.options[courseSelect.selectedIndex];
+  const assignmentId = courseSelect.value;
+  const courseId = selectedOption ? selectedOption.dataset.idCurso : null;
+
+  if (!studentId || !assignmentId || !courseId) {
+    showMessage("Selecciona un estudiante y una materia.", true);
+    return;
+  }
+
+  try {
+    await api(`/api/estudiantes/${studentId}/cursos`, {
+      method: "POST",
+      body: JSON.stringify({ idCurso: Number(courseId) })
+    });
+
+    await api(`/api/estudiantes/${studentId}/materias`, {
+      method: "POST",
+      body: JSON.stringify({ idDocenteCursoMateria: Number(assignmentId) })
+    });
+
+    $("#student-enroll-form").reset();
+    showMessage("Estudiante matriculado con éxito en la asignatura.");
+    await loadPanel();
+  } catch (error) {
+    showMessage(error.message, true);
+  }
+});
+
 if (state.token) {
-  loadPanel().catch(() => {
+  loadPanel().catch((err) => {
+    console.error("Error al cargar panel inicial:", err);
     clearSession();
     showMessage("Tu sesion expiro. Inicia sesion nuevamente.", true);
   });

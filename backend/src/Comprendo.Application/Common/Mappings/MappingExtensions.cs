@@ -71,6 +71,9 @@ public static class MappingExtensions
     public static EstudianteDto ToDto(this Estudiante entity) => new(
         entity.IdEstudiante,
         entity.IdUsuario,
+        entity.Usuario?.Nombres,
+        entity.Usuario?.Apellidos,
+        entity.Usuario?.Correo,
         entity.CodigoEstudiante,
         entity.TelefonoTelegram,
         entity.TelegramChatId,

@@ -32,4 +32,14 @@ public class IntegracionController(ISender sender) : ControllerBase
         [FromBody] RegisterSolicitudIaCommand command,
         CancellationToken cancellationToken) =>
         Ok(await sender.Send(command, cancellationToken));
+
+    /// <summary>Vincula la cuenta de Telegram de un estudiante por su teléfono.</summary>
+    [HttpPost("vincular-estudiante")]
+    public async Task<IActionResult> VincularEstudiante(
+        [FromBody] VincularEstudianteCommand command,
+        CancellationToken cancellationToken)
+    {
+        await sender.Send(command, cancellationToken);
+        return NoContent();
+    }
 }

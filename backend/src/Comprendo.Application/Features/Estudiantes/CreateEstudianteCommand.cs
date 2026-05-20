@@ -9,6 +9,9 @@ using MediatR;
 namespace Comprendo.Application.Features.Estudiantes;
 
 public record CreateEstudianteCommand(
+    string Nombres,
+    string Apellidos,
+    string Correo,
     string TelefonoTelegram,
     string? CodigoEstudiante,
     string? TelegramChatId,
@@ -18,6 +21,9 @@ public class CreateEstudianteCommandValidator : AbstractValidator<CreateEstudian
 {
     public CreateEstudianteCommandValidator()
     {
+        RuleFor(x => x.Nombres).NotEmpty().MaximumLength(100);
+        RuleFor(x => x.Apellidos).NotEmpty().MaximumLength(100);
+        RuleFor(x => x.Correo).NotEmpty().EmailAddress().MaximumLength(150);
         RuleFor(x => x.TelefonoTelegram).NotEmpty().MaximumLength(20);
     }
 }
@@ -47,7 +53,16 @@ public class CreateEstudianteCommandHandler : IRequestHandler<CreateEstudianteCo
             TelegramChatId = request.TelegramChatId,
             TelegramUsername = request.TelegramUsername,
             Estado = EstadoEstudiante.Activo,
-            FechaRegistro = _dateTime.UtcNow
+            FechaRegistro = _dateTime.UtcNow,
+            Usuario = new Usuario
+            {
+                Nombres = request.Nombres,
+                Apellidos = request.Apellidos,
+                Correo = request.Correo,
+                TipoUsuario = TipoUsuario.Estudiante,
+                Estado = EstadoUsuario.Activo,
+                FechaCreacion = _dateTime.UtcNow
+            }
         };
 
         var created = await _repository.CreateAsync(entity, cancellationToken);

@@ -29,6 +29,65 @@ if (TELEGRAM_BOT_TOKEN && TELEGRAM_BOT_TOKEN !== "tu_telegram_bot_token_aqui") {
     // Escuchar mensajes de los estudiantes
     bot.on("message", async (msg) => {
       const chatId = String(msg.chat.id);
+      
+      // Manejar comando /start
+      if (msg.text === "/start") {
+        await bot.sendMessage(chatId, "¡Hola! Bienvenido a Comprendo. 📚\n\nPara poder recibir evaluaciones de tus profesores, necesitamos vincular tu cuenta de Telegram con tu perfil de estudiante.\n\nPor favor, presiona el botón de abajo para compartir tu número de teléfono.", {
+          reply_markup: {
+            keyboard: [
+              [{ text: "📱 Compartir mi número para registrarme", request_contact: true }]
+            ],
+            resize_keyboard: true,
+            one_time_keyboard: true
+          }
+        });
+        return;
+      }
+
+      // Manejar envío de contacto
+      if (msg.contact) {
+        const phoneNumber = msg.contact.phone_number.replace(/\D/g, ""); // Remove '+' or spaces
+        const username = msg.from.username || null;
+        
+        try {
+          const coreUrl = process.env.CORE_API_URL || "http://localhost:5253";
+          console.log(`Vinculando estudiante en Core API: ${coreUrl}/api/integracion/vincular-estudiante`);
+          
+          const response = await fetch(`${coreUrl}/api/integracion/vincular-estudiante`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "X-Integration-Api-Key": process.env.INTEGRATION_API_KEY || "dev-integration-api-key"
+            },
+            body: JSON.stringify({
+              telefonoTelegram: phoneNumber,
+              telegramChatId: chatId,
+              telegramUsername: username
+            })
+          });
+
+          if (response.ok) {
+            await bot.sendMessage(chatId, "¡Excelente! Tu cuenta ha sido vinculada correctamente. Ya puedes recibir evaluaciones.", {
+              reply_markup: { remove_keyboard: true }
+            });
+          } else {
+            let errMessage = "Asegúrate de que tu profesor te haya registrado primero con este número de teléfono.";
+            try {
+              const errData = await response.json();
+              if (errData.title || errData.error) errMessage = errData.title || errData.error;
+            } catch (e) {
+              const errText = await response.text();
+              if (errText) errMessage = errText;
+            }
+            await bot.sendMessage(chatId, `No se pudo vincular tu cuenta: ${errMessage}`);
+          }
+        } catch (error) {
+          console.error("Error al vincular estudiante:", error);
+          await bot.sendMessage(chatId, "Ocurrió un error al intentar vincular tu cuenta. Intenta más tarde.");
+        }
+        return;
+      }
+
       const text = (msg.text || "").trim().toUpperCase();
 
       console.log(`Telegram Bot: mensaje recibido de ${chatId}: "${text}"`);

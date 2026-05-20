@@ -21,7 +21,7 @@ export async function generateQuestion(topic) {
       return fallback;
     }
 
-    const model = process.env.ZHIPU_MODEL || "glm-4-flash";
+    const model = process.env.ZHIPU_MODEL || "glm-4";
 
     const response = await fetch(ZHIPU_CHAT_URL, {
       method: "POST",

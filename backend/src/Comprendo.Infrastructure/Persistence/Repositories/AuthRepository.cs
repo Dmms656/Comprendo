@@ -11,4 +11,10 @@ public class AuthRepository(ComprendoDbContext dbContext) : IAuthRepository
 
     public Task<Docente?> GetDocenteByUsuarioIdAsync(int usuarioId, CancellationToken cancellationToken = default) =>
         dbContext.Docentes.FirstOrDefaultAsync(x => x.IdUsuario == usuarioId, cancellationToken);
+
+    public Task<Docente> CreateDocenteAsync(Docente entity, CancellationToken cancellationToken = default)
+    {
+        dbContext.Docentes.Add(entity);
+        return Task.FromResult(entity);
+    }
 }

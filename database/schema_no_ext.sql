@@ -174,7 +174,7 @@ CREATE TABLE lecciones (
     titulo                      VARCHAR(150) NOT NULL,
     descripcion                 TEXT,
     tema                        VARCHAR(150),
-    numero_preguntas            INT NOT NULL CHECK (numero_preguntas > 0),
+    numero_preguntas            INT NOT NULL CHECK (numero_preguntas >= 0),
     fecha_creacion              TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     fecha_programada            TIMESTAMPTZ,
     estado                      VARCHAR(20) NOT NULL DEFAULT 'BORRADOR'

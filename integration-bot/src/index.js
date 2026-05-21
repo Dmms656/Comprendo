@@ -6,6 +6,17 @@ import { generateQuestion } from "./services/zhipu.js";
 const PORT = Number(process.env.PORT) || 3000;
 const app = express();
 
+// Middleware de CORS para permitir peticiones desde el frontend (puerto 3000)
+app.use((req, res, next) => {
+  res.header("Access-Control-Allow-Origin", "*");
+  res.header("Access-Control-Allow-Headers", "Authorization, Origin, X-Requested-With, Content-Type, Accept, X-Integration-Api-Key");
+  res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+  if (req.method === "OPTIONS") {
+    return res.sendStatus(200);
+  }
+  next();
+});
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
@@ -44,7 +55,7 @@ function normalizePregunta(pregunta) {
       C: opts.C || "",
       D: opts.D || ""
     },
-    correct: pregunta.correct || pregunta.respuestaCorrecta || pregunta.claveRespuesta,
+    correct: pregunta.correct || pregunta.respuestaCorrecta || pregunta.claveRespuesta || pregunta.literalCorrecto,
     puntaje: pregunta.puntaje ? Number(pregunta.puntaje) : 1.0
   };
 }
@@ -115,6 +126,7 @@ async function sendQuestionToStudent({
         question: activeQ.question,
         options: activeQ.options,
         correct: activeQ.correct,
+        literalCorrecto: activeQ.correct,
         puntaje: puntaje ?? activeQ.puntaje
       },
       studentId: idEstudiante,
@@ -131,7 +143,7 @@ function chatHasActiveSession(chatId) {
 
 // Inicializar Telegram Bot
 let bot = null;
-let botUsername = "ComprendoBot";
+let botUsername = "Comprendobotv1_bot";
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 
 if (TELEGRAM_BOT_TOKEN && TELEGRAM_BOT_TOKEN !== "tu_telegram_bot_token_aqui") {
@@ -328,8 +340,18 @@ if (TELEGRAM_BOT_TOKEN && TELEGRAM_BOT_TOKEN !== "tu_telegram_bot_token_aqui") {
 
       console.log(`Telegram Bot: mensaje recibido de ${chatId}: "${text}"`);
 
-      // Normalizar respuestas comunes (ej: "A." -> "A", "opción A" -> "A", "opcion A" -> "A")
-      if (text.length > 1) {
+      // Normalizar emojis de letras comunes
+      text = text.replace(/🅰️|🅰/g, "A")
+                 .replace(/🅱️|🅱/g, "B")
+                 .replace(/🅲️|🅲/g, "C")
+                 .replace(/🄳️|🄳|🅳️|🅳/g, "D");
+
+      // Buscar una letra A, B, C o D aislada
+      const match = text.match(/\b([A-D])\b/);
+      if (match) {
+        text = match[1];
+      } else {
+        // Fallback de normalización de cadenas para casos especiales
         text = text.replace(/OPCIÓN|OPCION|RESPUESTA|SELECCIONO|ELEGIR|\s|\./g, "");
       }
 
@@ -339,7 +361,7 @@ if (TELEGRAM_BOT_TOKEN && TELEGRAM_BOT_TOKEN !== "tu_telegram_bot_token_aqui") {
         return; // Retornamos temprano sin eliminar el estado para permitir reintentos
       }
 
-      const correct = chatState.activeQuestion.correct || chatState.activeQuestion.claveRespuesta;
+      const correct = chatState.activeQuestion.correct || chatState.activeQuestion.claveRespuesta || chatState.activeQuestion.literalCorrecto;
       const isCorrect = text === correct;
 
       // Responder al alumno en Telegram

@@ -1,3 +1,6 @@
+using System.Collections.Generic;
+using Comprendo.Application.Features.Integracion;
+
 namespace Comprendo.Application.Features.Resultados;
 
 public record ResultadoLeccionDto(
@@ -16,4 +19,6 @@ public record ResultadoLeccionDto(
     decimal Porcentaje,
     string Estado,
     DateTimeOffset? FechaInicio,
-    DateTimeOffset? FechaFinalizacion);
+    DateTimeOffset? FechaFinalizacion,
+    IReadOnlyList<RespuestaEstudianteDto>? Respuestas,
+    IReadOnlyDictionary<string, bool>? RespuestasMapa);

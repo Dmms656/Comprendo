@@ -20,4 +20,14 @@ public class AuthController(ISender sender) : ControllerBase
         var result = await sender.Send(new LoginCommand(request.Correo, request.Password), cancellationToken);
         return Ok(result);
     }
+
+    /// <summary>Registra un nuevo docente.</summary>
+    [HttpPost("register")]
+    [AllowAnonymous]
+    [ProducesResponseType(typeof(UsuarioDto), StatusCodes.Status200OK)]
+    public async Task<ActionResult<UsuarioDto>> Register([FromBody] RegisterDocenteCommand command, CancellationToken cancellationToken)
+    {
+        var result = await sender.Send(command, cancellationToken);
+        return Ok(result);
+    }
 }

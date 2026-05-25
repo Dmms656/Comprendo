@@ -1,6 +1,7 @@
 "use client"
 
 import { useRouter } from "next/navigation"
+import { Users, BookOpen, BarChart3 } from "lucide-react"
 
 export type CourseTab = "dashboard" | "lecciones" | "estudiantes"
 
@@ -12,10 +13,10 @@ interface CourseSidebarProps {
   activeTab: CourseTab
 }
 
-const navItems: { key: CourseTab; label: string }[] = [
-  { key: "dashboard", label: "Dashboard" },
-  { key: "lecciones", label: "Lecciones" },
-  { key: "estudiantes", label: "Estudiantes" },
+const navItems: { key: CourseTab; label: string; icon: any }[] = [
+  { key: "estudiantes", label: "Estudiantes", icon: Users },
+  { key: "lecciones", label: "Lecciones", icon: BookOpen },
+  { key: "dashboard", label: "Dashboard", icon: BarChart3 },
 ]
 
 export function CourseSidebar({
@@ -26,36 +27,38 @@ export function CourseSidebar({
   activeTab,
 }: CourseSidebarProps) {
   const router = useRouter()
-  const sidebarTitle = `${subject} ${gradeName} '${section}'`
+  const sidebarTitle = `${subject} — ${gradeName} '${section}'`
 
   const handleNav = (tab: CourseTab) => {
     const base = `/curso/${gradeId}/${encodeURIComponent(subject)}`
-    if (tab === "dashboard") router.push(base)
-    else router.push(`${base}/${tab}`)
+    router.push(`${base}/${tab}`)
   }
 
   return (
     <aside
-      className="flex-shrink-0 flex flex-col pt-8 pb-6 gap-6"
-      style={{ width: 130, backgroundColor: "#9E5A78" }}
+      className="flex-shrink-0 flex flex-col pt-8 pb-6 gap-6 shadow-xl border-r border-[#9E5A78]/10"
+      style={{ width: 180, backgroundColor: "#9E5A78" }}
     >
-      {/* Labels */}
-      <div className="px-4">
-        <p className="text-white font-bold text-sm leading-tight">Menú</p>
-        <p className="text-white/70 text-xs mt-0.5 leading-snug">{sidebarTitle}</p>
+      {/* Title / Info */}
+      <div className="px-4 border-b border-white/10 pb-4 text-center md:text-left">
+        <p className="text-white font-bold text-xs uppercase tracking-wider opacity-65">Curso</p>
+        <p className="text-white font-black text-sm mt-1 leading-snug break-words">{sidebarTitle}</p>
       </div>
 
       {/* Nav items */}
-      <nav className="flex flex-col gap-1 px-2">
-        {navItems.map(({ key, label }) => (
+      <nav className="flex flex-col gap-1.5 px-3">
+        {navItems.map(({ key, label, icon: Icon }) => (
           <button
             key={key}
             onClick={() => handleNav(key)}
-            className={`w-full text-left px-3 py-2.5 rounded-xl text-white font-semibold text-sm transition-all duration-150 ${
-              activeTab === key ? "bg-white/20" : "hover:bg-white/10"
+            className={`w-full flex items-center gap-2.5 px-3.5 py-3 rounded-2xl text-white font-bold text-xs transition-all duration-300 transform active:scale-95 text-left cursor-pointer ${
+              activeTab === key 
+                ? "bg-white/20 shadow-md border border-white/10" 
+                : "hover:bg-white/10 opacity-80 hover:opacity-100"
             }`}
           >
-            {label}
+            <Icon size={16} />
+            <span>{label}</span>
           </button>
         ))}
       </nav>

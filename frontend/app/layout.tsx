@@ -1,12 +1,12 @@
 import type { Metadata } from 'next'
-import { Nunito } from 'next/font/google'
+import { Fredoka } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
 import './globals.css'
 
-const nunito = Nunito({ 
+const fredoka = Fredoka({ 
   subsets: ["latin"],
-  variable: "--font-nunito",
-  weight: ["400", "500", "600", "700", "800"]
+  variable: "--font-fredoka",
+  weight: ["300", "400", "500", "600", "700"]
 });
 
 export const metadata: Metadata = {
@@ -39,7 +39,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="es" className="bg-[#fdfdf1]">
-      <body className={`${nunito.variable} font-sans antialiased`}>
+      <body className={`${fredoka.variable} font-sans antialiased`}>
         {children}
         {process.env.NODE_ENV === 'production' && <Analytics />}
       </body>

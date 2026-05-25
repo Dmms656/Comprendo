@@ -7,6 +7,14 @@ import { AuthLayout } from "@/components/auth-layout"
 import { CourseSidebar } from "@/components/course-sidebar"
 import { generateQuestion, createLeccion, createPregunta, getEstudiantes, startEvaluationForStudent } from "@/lib/api"
 import type { GeneratedQuestion, Opcion, Estudiante } from "@/lib/types"
+import {
+  Breadcrumb,
+  BreadcrumbList,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface NuevaLeccionPageProps {
@@ -57,7 +65,6 @@ export function NuevaLeccionPage({
   subject = "Física",
 }: NuevaLeccionPageProps) {
   const router = useRouter()
-  const breadcrumb = `Grados/${gradeName}/${subject}/Lecciones/NuevaLección`
 
   const initialMessage: Message = {
     id: 0,
@@ -286,7 +293,42 @@ export function NuevaLeccionPage({
         {/* ── Main ──────────────────────────────────────────────────────── */}
         <main className="flex-1 bg-[#faf6df] px-8 py-6 flex flex-col min-h-0">
           {/* Breadcrumb */}
-          <p className="text-[#7297C9] text-sm mb-2">{breadcrumb}</p>
+          <Breadcrumb className="mb-2">
+            <BreadcrumbList>
+              <BreadcrumbItem>
+                <BreadcrumbLink
+                  onClick={() => router.push("/grados")}
+                  className="cursor-pointer text-[#7297C9] hover:text-[#5B9B95] font-bold text-xs uppercase tracking-wide transition-colors"
+                >
+                  Mis Cursos
+                </BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator className="text-[#7297C9] [&>svg]:size-3" />
+              <BreadcrumbItem>
+                <BreadcrumbLink
+                  onClick={() => router.push(`/curso/${gradeId}/${encodeURIComponent(subject)}/estudiantes`)}
+                  className="cursor-pointer text-[#7297C9] hover:text-[#5B9B95] font-bold text-xs uppercase tracking-wide transition-colors"
+                >
+                  {gradeName} — {subject}
+                </BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator className="text-[#7297C9] [&>svg]:size-3" />
+              <BreadcrumbItem>
+                <BreadcrumbLink
+                  onClick={() => router.push(`/curso/${gradeId}/${encodeURIComponent(subject)}/lecciones`)}
+                  className="cursor-pointer text-[#7297C9] hover:text-[#5B9B95] font-bold text-xs uppercase tracking-wide transition-colors"
+                >
+                  Lecciones
+                </BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator className="text-[#7297C9] [&>svg]:size-3" />
+              <BreadcrumbItem>
+                <BreadcrumbPage className="text-[#C66B86] font-bold text-xs uppercase tracking-wide">
+                  Nueva Lección
+                </BreadcrumbPage>
+              </BreadcrumbItem>
+            </BreadcrumbList>
+          </Breadcrumb>
 
           {/* Heading + Publish button */}
           <div className="flex items-center justify-between mb-4">

@@ -27,28 +27,29 @@ export function Navbar({ isLoggedIn = false, onLogin, onLogout }: NavbarProps) {
   }, [])
 
   return (
-    <nav className="sticky top-0 z-50 h-14 bg-[#fdfdf1] px-8 flex items-center justify-between">
+    <nav className="sticky top-0 z-50 h-14 bg-[#f4f0d5] border-b border-[#F1D87C]/30 px-8 flex items-center justify-between">
       {/* Logo */}
-      <span
-        className={`text-2xl font-bold ${
-          isLoggedIn ? "text-[#7297C9]" : "text-[#C66B86]"
+      <button
+        onClick={() => router.push("/")}
+        className={`text-2xl font-black tracking-tight cursor-pointer hover:opacity-80 transition-opacity ${
+          isLoggedIn ? "text-[#7297C9]" : "text-[#9E5A78]"
         }`}
       >
         Comprendo
-      </span>
+      </button>
 
       {/* Right side */}
       {!isLoggedIn ? (
         <div className="flex items-center gap-3">
           <button
             onClick={() => router.push("/registro")}
-            className="rounded-full border border-[#F1D87C] px-5 py-1.5 text-sm font-medium text-[#C66B86] bg-transparent hover:bg-[#F1D87C]/10 transition-colors"
+            className="rounded-2xl bg-[#5B9B95] px-6 py-2 text-xs font-bold text-white hover:bg-[#4a8880] shadow-md shadow-[#5B9B95]/15 hover:shadow-lg hover:scale-105 active:scale-[0.98] transition-all cursor-pointer"
           >
             Registrarse
           </button>
           <button
             onClick={() => router.push("/login")}
-            className="rounded-full bg-[#F1D87C] px-5 py-1.5 text-sm font-medium text-white hover:bg-[#F1D87C]/90 transition-colors"
+            className="rounded-2xl bg-[#5B9B95] px-6 py-2 text-xs font-bold text-white hover:bg-[#4a8880] shadow-md shadow-[#5B9B95]/15 hover:shadow-lg hover:scale-105 active:scale-[0.98] transition-all cursor-pointer"
           >
             Iniciar sesión
           </button>
@@ -72,13 +73,9 @@ export function Navbar({ isLoggedIn = false, onLogin, onLogout }: NavbarProps) {
             
             {showDropdown && (
               <div className="absolute right-0 top-full mt-2 w-40 rounded-2xl bg-white p-2 shadow-lg">
-                <button className="w-full rounded-xl px-4 py-2 text-left font-bold text-[#7297C9] hover:bg-[#fdfdf1] transition-colors">
-                  Perfil
-                </button>
-                <div className="mx-2 my-1 h-px bg-gray-200" />
                 <button
                   onClick={onLogout}
-                  className="w-full rounded-xl px-4 py-2 text-left text-[#7297C9] hover:bg-[#fdfdf1] transition-colors"
+                  className="w-full rounded-xl px-4 py-2 text-left font-bold text-[#7297C9] hover:bg-[#fdfdf1] transition-colors"
                 >
                   Cerrar Sesión
                 </button>

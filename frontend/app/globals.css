@@ -75,7 +75,7 @@
 }
 
 @theme inline {
-  --font-sans: var(--font-nunito), 'Nunito', sans-serif;
+  --font-sans: var(--font-fredoka), 'Fredoka', sans-serif;
   --font-mono: 'Geist Mono', 'Geist Mono Fallback';
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -118,6 +118,7 @@
 @layer base {
   * {
     @apply border-border outline-ring/50;
+    font-family: var(--font-fredoka), 'Fredoka', sans-serif !important;
   }
   body {
     @apply bg-background text-foreground;

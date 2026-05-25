@@ -25,10 +25,10 @@ export interface Asignacion {
 export interface Leccion {
   id: number | string
   tema: string
-  parcial?: number
   fechaCreacion?: string
   hora?: string
   estado?: string
+  idDocenteCursoMateria?: number | string
 }
 
 export interface LeccionesResponse {
@@ -83,7 +83,6 @@ export interface EstudiantesResponse {
 export interface CreateLeccionRequest {
   tema: string
   idDocenteCursoMateria: number | string
-  parcial?: number
   titulo?: string
   descripcion?: string
   creadaConIa?: boolean

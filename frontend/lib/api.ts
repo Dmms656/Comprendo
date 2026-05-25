@@ -159,13 +159,18 @@ export async function getAsignaciones(): Promise<Asignacion[]> {
 
 // ─── Lecciones ────────────────────────────────────────────────────────────────
 
-export async function getLecciones(): Promise<Leccion[]> {
-  const res = await request<LeccionesResponse | any[]>("/api/lecciones?pageSize=1000")
+export async function getLecciones(idDocenteCursoMateria?: string | number): Promise<Leccion[]> {
+  let url = "/api/lecciones?pageSize=1000"
+  if (idDocenteCursoMateria) {
+    url += `&idDocenteCursoMateria=${idDocenteCursoMateria}`
+  }
+  const res = await request<LeccionesResponse | any[]>(url)
   // Handle both `{ items: [...] }` and `[...]` response shapes
   const items = Array.isArray(res) ? res : (res as LeccionesResponse).items ?? []
   return items.map((item: any) => ({
     ...item,
     id: item.id ?? item.idLeccion,
+    idDocenteCursoMateria: item.idDocenteCursoMateria ?? item.IdDocenteCursoMateria,
   }))
 }
 
@@ -177,6 +182,7 @@ export async function createLeccion(data: CreateLeccionRequest): Promise<Leccion
   return {
     ...res,
     id: res.id ?? res.idLeccion,
+    idDocenteCursoMateria: res.idDocenteCursoMateria ?? res.IdDocenteCursoMateria ?? data.idDocenteCursoMateria,
   }
 }
 

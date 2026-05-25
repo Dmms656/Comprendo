@@ -1,4 +1,4 @@
-import { Instagram } from "lucide-react"
+import { Instagram, Mail, Phone, Heart } from "lucide-react"
 
 function XIcon({ className }: { className?: string }) {
   return (
@@ -18,56 +18,80 @@ function XIcon({ className }: { className?: string }) {
 }
 
 export function Footer() {
+  const currentYear = new Date().getFullYear()
+
   return (
-    <footer className="w-full bg-[#fdfdf1] py-8">
-      {/* Dotted top border */}
-      <div className="border-t-2 border-dotted border-[#7297C9]/40 mb-6" />
-      
-      <div className="flex flex-col items-center gap-6 px-4">
-        {/* Title */}
-        <h2 className="text-lg font-bold text-[#9E5A78]">Comprendo</h2>
+    <footer className="w-full bg-gradient-to-t from-[#ebe7cb] to-[#f4f0d5] pt-12 pb-8 border-t border-[#F1D87C]/30">
+      <div className="max-w-6xl mx-auto px-6">
         
-        {/* Two columns */}
-        <div className="flex flex-wrap justify-center gap-16 md:gap-24">
-          {/* Left Column - Social */}
+        {/* Main Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-10 pb-8 border-b border-[#F1D87C]/20">
+          
+          {/* Col 1 - Brand description */}
+          <div className="space-y-4 text-center md:text-left">
+            <h2 className="text-2xl font-black text-[#9E5A78] tracking-tight">
+              Comprendo
+            </h2>
+            <p className="text-[#5B5B5B] text-xs leading-relaxed max-w-xs mx-auto md:mx-0">
+              Transformando la retroalimentación pedagógica en las aulas con el poder de la tecnología accesible y el feedback inmediato.
+            </p>
+          </div>
+
+          {/* Col 2 - Encuéntranos en... */}
           <div className="flex flex-col items-center gap-3">
-            <span className="text-sm font-semibold italic text-[#C66B86]">
-              Encuéntranos en...
+            <span className="text-sm font-bold uppercase tracking-wider text-[#C66B86]">
+              Redes Sociales
             </span>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-4 mt-1">
               <a
                 href="https://www.instagram.com/comprendoia_26/"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center justify-center w-10 h-10 rounded-full border-2 border-[#7297C9] text-[#7297C9] hover:bg-[#7297C9]/10 transition-colors"
+                className="flex items-center justify-center w-11 h-11 rounded-2xl border border-[#7297C9]/35 text-[#7297C9] bg-white hover:bg-[#7297C9] hover:text-white transition-all duration-300 hover:shadow-md hover:scale-105"
+                aria-label="Instagram"
               >
                 <Instagram className="w-5 h-5" />
               </a>
               <a
                 href="#"
-                className="flex items-center justify-center w-10 h-10 rounded-full border-2 border-[#7297C9] text-[#7297C9] hover:bg-[#7297C9]/10 transition-colors"
+                className="flex items-center justify-center w-11 h-11 rounded-2xl border border-[#7297C9]/35 text-[#7297C9] bg-white hover:bg-[#7297C9] hover:text-white transition-all duration-300 hover:shadow-md hover:scale-105"
+                aria-label="X (Twitter)"
               >
                 <XIcon className="w-5 h-5" />
               </a>
             </div>
           </div>
-          
-          {/* Right Column - Contact */}
-          <div className="flex flex-col items-center gap-2">
-            <span className="text-sm font-semibold italic text-[#C66B86]">
-              Contáctanos
+
+          {/* Col 3 - Contáctanos */}
+          <div className="flex flex-col items-center md:items-end gap-3">
+            <span className="text-sm font-bold uppercase tracking-wider text-[#C66B86]">
+              Contacto
             </span>
-            <a 
-              href="mailto:comprendo@gmail.com"
-              className="text-sm text-[#7297C9] hover:underline"
-            >
-              comprendo@gmail.com
-            </a>
-            <span className="text-sm italic text-[#7297C9]">
-              telf. 0998352043
-            </span>
+            <div className="space-y-2 text-center md:text-right">
+              <a 
+                href="mailto:comprendo@gmail.com"
+                className="flex items-center justify-center md:justify-end gap-2 text-sm text-[#7297C9] hover:text-[#9E5A78] transition-colors group"
+              >
+                <Mail size={14} className="group-hover:scale-110 transition-transform" />
+                comprendo@gmail.com
+              </a>
+              <p className="flex items-center justify-center md:justify-end gap-2 text-sm text-[#5B5B5B]">
+                <Phone size={14} />
+                0998352043
+              </p>
+            </div>
           </div>
+
         </div>
+
+        {/* Footer bottom */}
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-6 text-xs text-[#5B5B5B]/70">
+          <p>© {currentYear} Comprendo. Todos los derechos reservados.</p>
+          <p className="flex items-center gap-1">
+            Hecho con <Heart size={10} className="fill-[#C66B86] text-[#C66B86] animate-pulse" /> para docentes innovadores.
+          </p>
+        </div>
+
       </div>
     </footer>
   )

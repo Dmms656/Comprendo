@@ -1,29 +1,13 @@
-import { CourseDashboardPage } from "@/components/course-dashboard-page"
-
-const gradeNames: Record<string, string> = {
-  "1": "Primero",
-  "2": "Segundo",
-  "3": "Tercero",
-  "4": "Octavo",
-  "5": "Noveno",
-  "6": "Décimo",
-}
+import { redirect } from "next/navigation"
 
 interface PageProps {
   params: Promise<{ gradeId: string; subject: string }>
 }
 
-export default async function CourseDashboardRoute({ params }: PageProps) {
+export default async function CourseRootRoute({ params }: PageProps) {
   const resolvedParams = await params
-  const gradeName = gradeNames[resolvedParams.gradeId] ?? "Grado"
-  const subject = decodeURIComponent(resolvedParams.subject)
+  const gradeId = resolvedParams.gradeId
+  const subject = resolvedParams.subject
 
-  return (
-    <CourseDashboardPage
-      gradeId={resolvedParams.gradeId}
-      gradeName={gradeName}
-      section="D"
-      subject={subject}
-    />
-  )
+  redirect(`/curso/${gradeId}/${subject}/estudiantes`)
 }

@@ -8,8 +8,17 @@ import {
 import { Search, X, Check } from "lucide-react"
 import { AuthLayout } from "@/components/auth-layout"
 import { CourseSidebar } from "@/components/course-sidebar"
-import { getResultados, getPreguntas } from "@/lib/api"
+import { getResultados, getPreguntas, getLecciones } from "@/lib/api"
 import type { Resultado, Pregunta, Opcion } from "@/lib/types"
+import { useRouter } from "next/navigation"
+import {
+  Breadcrumb,
+  BreadcrumbList,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface LeccionDetallePageProps {
@@ -83,8 +92,8 @@ function ParticipacionesTab({ lessonId }: { lessonId: string | number }) {
 
   useEffect(() => {
     let cancelled = false
-    async function load() {
-      setLoading(true)
+    async function load(isSilent = false) {
+      if (!isSilent) setLoading(true)
       setError(null)
       try {
         const [resData, pregData] = await Promise.all([
@@ -96,7 +105,7 @@ function ParticipacionesTab({ lessonId }: { lessonId: string | number }) {
           setPreguntas(pregData)
         }
       } catch (err) {
-        if (!cancelled) {
+        if (!cancelled && !isSilent) {
           if (process.env.NODE_ENV === "development") {
             setResultados(MOCK_RESULTADOS)
             setPreguntas(MOCK_PREGUNTAS)
@@ -108,8 +117,18 @@ function ParticipacionesTab({ lessonId }: { lessonId: string | number }) {
         if (!cancelled) setLoading(false)
       }
     }
-    load()
-    return () => { cancelled = true }
+    
+    load(false)
+
+    // Polling background update every 4 seconds
+    const interval = setInterval(() => {
+      load(true)
+    }, 4000)
+
+    return () => {
+      cancelled = true
+      clearInterval(interval)
+    }
   }, [lessonId])
 
   const maxPreguntas = preguntas.length > 0
@@ -134,20 +153,31 @@ function ParticipacionesTab({ lessonId }: { lessonId: string | number }) {
   return (
     <div>
       {/* Search row */}
-      <div className="flex items-center gap-2 mb-4">
-        <span className="text-[#9E5A78] font-semibold text-sm">Buscar:</span>
-        <div className="relative">
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Doménica"
-            className="bg-[#9BC294]/30 border-none rounded-full pl-4 pr-8 py-1.5 text-sm text-[#5B5B5B] placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#9BC294]/50 w-40"
-          />
-          <Search
-            size={14}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-[#5B9B95]"
-          />
+      <div className="flex items-center justify-between mb-4 flex-wrap gap-4">
+        <div className="flex items-center gap-2">
+          <span className="text-[#9E5A78] font-semibold text-sm">Buscar:</span>
+          <div className="relative">
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Doménica"
+              className="bg-[#9BC294]/30 border-none rounded-full pl-4 pr-8 py-1.5 text-sm text-[#5B5B5B] placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#9BC294]/50 w-40 font-semibold"
+            />
+            <Search
+              size={14}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-[#5B9B95]"
+            />
+          </div>
+        </div>
+
+        {/* Live Update Indicator */}
+        <div className="flex items-center gap-2 bg-[#9BC294]/15 text-[#5a8c55] px-3.5 py-1.5 rounded-full text-xs font-black select-none border border-[#9BC294]/35">
+          <span className="relative flex h-2 w-2">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#5BC28B] opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-[#5BC28B]"></span>
+          </span>
+          Actualizando en vivo (Telegram)
         </div>
       </div>
 
@@ -401,8 +431,8 @@ function DashboardTab({ lessonId }: { lessonId: string | number }) {
 
   useEffect(() => {
     let cancelled = false
-    async function load() {
-      setLoading(true)
+    async function load(isSilent = false) {
+      if (!isSilent) setLoading(true)
       try {
         const [resData, pregData] = await Promise.all([
           getResultados(lessonId).catch(() => []),
@@ -416,8 +446,18 @@ function DashboardTab({ lessonId }: { lessonId: string | number }) {
         if (!cancelled) setLoading(false)
       }
     }
-    load()
-    return () => { cancelled = true }
+    
+    load(false)
+
+    // Polling background update every 4 seconds
+    const interval = setInterval(() => {
+      load(true)
+    }, 4000)
+
+    return () => {
+      cancelled = true
+      clearInterval(interval)
+    }
   }, [lessonId])
 
   // ── Compute stats from real data ─────────────────────────────────────────
@@ -502,6 +542,17 @@ function DashboardTab({ lessonId }: { lessonId: string | number }) {
 
   return (
     <div>
+      {/* Live Update Indicator */}
+      <div className="flex justify-end mb-3">
+        <div className="flex items-center gap-2 bg-[#9BC294]/15 text-[#5a8c55] px-3.5 py-1.5 rounded-full text-xs font-black select-none border border-[#9BC294]/35">
+          <span className="relative flex h-2 w-2">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#5BC28B] opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-[#5BC28B]"></span>
+          </span>
+          Actualizando en vivo (Telegram)
+        </div>
+      </div>
+
       {/* ROW 1 — Stat cards */}
       <div className="flex gap-4 mb-4">
         <StatCard label="Conteo estudiantes"    value={totalEstudiantes} sub="Estudiantes" color="#5B9B95" />
@@ -610,9 +661,30 @@ export function LeccionDetallePage({
   subject = "Física",
   lessonNumber = 4,
 }: LeccionDetallePageProps) {
+  const router = useRouter()
   const [activeTab, setActiveTab] = useState<TabKey>("participaciones")
+  const [sequentialNum, setSequentialNum] = useState<number | null>(null)
 
-  const breadcrumb = `Grados/${gradeName}/${subject}/Lecciones/Lección${lessonNumber}`
+  useEffect(() => {
+    let cancelled = false
+    async function loadLessons() {
+      try {
+        const allLessons = await getLecciones(gradeId)
+        const courseLessons = allLessons.filter(l => String(l.idDocenteCursoMateria) === String(gradeId))
+        courseLessons.sort((a, b) => (Number(a.id) || 0) - (Number(b.id) || 0))
+        const idx = courseLessons.findIndex(l => String(l.id) === String(lessonNumber))
+        if (!cancelled && idx !== -1) {
+          setSequentialNum(idx + 1)
+        }
+      } catch (err) {
+        console.error("Error loading lessons for sequential numbering:", err)
+      }
+    }
+    loadLessons()
+    return () => { cancelled = true }
+  }, [gradeId, lessonNumber])
+
+  const displayNum = sequentialNum !== null ? sequentialNum : lessonNumber
 
   const tabs: { key: TabKey; label: string }[] = [
     { key: "participaciones", label: "Participaciones" },
@@ -635,11 +707,46 @@ export function LeccionDetallePage({
         {/* ── Main ──────────────────────────────────────────────────────── */}
         <main className="flex-1 bg-[#faf6df] px-8 py-6 min-w-0">
           {/* Breadcrumb */}
-          <p className="text-[#7297C9] text-sm mb-2">{breadcrumb}</p>
+          <Breadcrumb className="mb-2">
+            <BreadcrumbList>
+              <BreadcrumbItem>
+                <BreadcrumbLink
+                  onClick={() => router.push("/grados")}
+                  className="cursor-pointer text-[#7297C9] hover:text-[#5B9B95] font-bold text-xs uppercase tracking-wide transition-colors"
+                >
+                  Mis Cursos
+                </BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator className="text-[#7297C9] [&>svg]:size-3" />
+              <BreadcrumbItem>
+                <BreadcrumbLink
+                  onClick={() => router.push(`/curso/${gradeId}/${encodeURIComponent(subject)}/estudiantes`)}
+                  className="cursor-pointer text-[#7297C9] hover:text-[#5B9B95] font-bold text-xs uppercase tracking-wide transition-colors"
+                >
+                  {gradeName} — {subject}
+                </BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator className="text-[#7297C9] [&>svg]:size-3" />
+              <BreadcrumbItem>
+                <BreadcrumbLink
+                  onClick={() => router.push(`/curso/${gradeId}/${encodeURIComponent(subject)}/lecciones`)}
+                  className="cursor-pointer text-[#7297C9] hover:text-[#5B9B95] font-bold text-xs uppercase tracking-wide transition-colors"
+                >
+                  Lecciones
+                </BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator className="text-[#7297C9] [&>svg]:size-3" />
+              <BreadcrumbItem>
+                <BreadcrumbPage className="text-[#C66B86] font-bold text-xs uppercase tracking-wide">
+                  Lección #{displayNum}
+                </BreadcrumbPage>
+              </BreadcrumbItem>
+            </BreadcrumbList>
+          </Breadcrumb>
 
           {/* Heading */}
           <h1 className="text-4xl font-bold italic text-[#9E5A78] mb-4">
-            Lección #{lessonNumber}
+            Lección #{displayNum}
           </h1>
 
           {/* ── Tab bar ─────────────────────────────────────────────────── */}

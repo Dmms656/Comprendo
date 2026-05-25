@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { Search, X, Edit2, ChevronDown, ChevronUp, Plus } from "lucide-react"
+import { Search, X, Edit2, ChevronDown, ChevronUp, Plus, Award, ArrowRight, Calendar, Sparkles } from "lucide-react"
 import { AuthLayout } from "@/components/auth-layout"
 import {
   getAsignaciones,
@@ -28,37 +28,62 @@ import type {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-/** Convert a nivel string like "Octavo" → { number: 8, ordinal: "vo", name: "Octavo" } */
+/** Convert a nivel string like "Octavo" → { number: number, ordinal: string, name: string } */
 function parseNivel(nivel: string): { number: number; ordinal: string; name: string } {
-  const map: Record<string, { number: number; ordinal: string }> = {
-    primero:   { number: 1,  ordinal: "ro" },
-    segundo:   { number: 2,  ordinal: "do" },
-    tercero:   { number: 3,  ordinal: "ro" },
-    cuarto:    { number: 4,  ordinal: "to" },
-    quinto:    { number: 5,  ordinal: "to" },
-    sexto:     { number: 6,  ordinal: "to" },
-    séptimo:   { number: 7,  ordinal: "mo" },
-    septimo:   { number: 7,  ordinal: "mo" },
-    octavo:    { number: 8,  ordinal: "vo" },
-    noveno:    { number: 9,  ordinal: "no" },
-    décimo:    { number: 10, ordinal: "mo" },
-    decimo:    { number: 10, ordinal: "mo" },
+  const normalized = nivel.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim()
+  
+  if (normalized.includes("primero") || normalized.includes("primer")) {
+    return { number: 1, ordinal: "ro", name: nivel }
   }
-  const key = nivel.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
-  const found = map[nivel.toLowerCase()] ?? map[key]
-  return found
-    ? { number: found.number, ordinal: found.ordinal, name: nivel }
-    : { number: 0, ordinal: "", name: nivel }
+  if (normalized.includes("segundo")) {
+    return { number: 2, ordinal: "do", name: nivel }
+  }
+  if (normalized.includes("tercero") || normalized.includes("tercer")) {
+    return { number: 3, ordinal: "ro", name: nivel }
+  }
+  if (normalized.includes("cuarto")) {
+    return { number: 4, ordinal: "to", name: nivel }
+  }
+  if (normalized.includes("quinto")) {
+    return { number: 5, ordinal: "to", name: nivel }
+  }
+  if (normalized.includes("sexto")) {
+    return { number: 6, ordinal: "to", name: nivel }
+  }
+  if (normalized.includes("septimo")) {
+    return { number: 7, ordinal: "mo", name: nivel }
+  }
+  if (normalized.includes("octavo")) {
+    return { number: 8, ordinal: "vo", name: nivel }
+  }
+  if (normalized.includes("noveno")) {
+    return { number: 9, ordinal: "no", name: nivel }
+  }
+  if (normalized.includes("decimo")) {
+    return { number: 10, ordinal: "mo", name: nivel }
+  }
+  
+  // Check direct numbers (e.g. 1ro, 2do, 3ro, 1er, 1, 2, 3)
+  const numberMatch = normalized.match(/\b(10|[1-9])\b/) || normalized.match(/(10|[1-9])/)
+  if (numberMatch) {
+    const num = parseInt(numberMatch[1])
+    const ordinals: Record<number, string> = {
+      1: "ro", 2: "do", 3: "ro", 4: "to", 5: "to", 6: "to", 7: "mo", 8: "vo", 9: "no", 10: "mo"
+    }
+    return { number: num, ordinal: ordinals[num] ?? "no", name: nivel }
+  }
+  
+  return { number: 0, ordinal: "", name: nivel }
 }
 
 // ─── Skeleton card ────────────────────────────────────────────────────────────
 function SkeletonCard() {
   return (
-    <div className="bg-white rounded-2xl shadow-sm px-6 py-5 flex items-center gap-4 border border-[#F1D87C]/40 animate-pulse">
-      <div className="w-14 h-14 rounded-xl bg-[#5B9B95]/20" />
+    <div className="bg-white/80 rounded-3xl shadow-sm px-6 py-6 flex items-center gap-4 border border-[#F1D87C]/30 animate-pulse">
+      <div className="w-14 h-14 rounded-2xl bg-[#5B9B95]/10" />
       <div className="flex flex-col gap-2 flex-1">
-        <div className="h-4 w-24 rounded-full bg-[#9E5A78]/20" />
-        <div className="h-3 w-16 rounded-full bg-[#C66B86]/20" />
+        <div className="h-5 w-28 rounded-full bg-[#9E5A78]/10" />
+        <div className="h-4.5 w-20 rounded-full bg-[#C66B86]/10" />
       </div>
     </div>
   )
@@ -274,193 +299,214 @@ export function GradesPanelPage() {
 
   return (
     <AuthLayout>
-      <main className="flex-1 max-w-5xl mx-auto w-full px-8 py-10">
+      <main className="flex-1 max-w-5xl mx-auto w-full px-6 md:px-8 py-10 min-h-[calc(100vh-3.5rem)]">
+        
         {/* Header Row */}
-        <div className="flex flex-wrap items-center justify-between gap-4 mb-8">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10 pb-6 border-b border-[#F1D87C]/20">
           {/* Left Side - Title */}
-          <div className="flex items-center gap-3">
-            <h1 className="text-3xl font-bold text-[#9E5A78] italic">
-              Grados Asignados
-            </h1>
-            <span className="bg-[#fdfdf1] border border-[#9BC294] text-[#5B9B95] text-sm font-semibold rounded-full px-3 py-1">
-              {anioLectivo}
-            </span>
+          <div className="space-y-1.5 text-left">
+            <div className="flex items-center gap-3">
+              <h1 className="text-3xl md:text-4xl font-black text-[#9E5A78] tracking-tight">
+                Mis Cursos
+              </h1>
+              <span className="flex items-center gap-1.5 bg-[#5B9B95]/10 text-[#5B9B95] border border-[#5B9B95]/20 text-xs font-bold rounded-full px-3 py-1">
+                <Calendar size={12} /> {anioLectivo}
+              </span>
+            </div>
+            <p className="text-xs text-[#C66B86] font-semibold tracking-wide uppercase">
+              Gestiona tus asignaciones, estudiantes y lecciones académicas
+            </p>
           </div>
 
           {/* Right Side - Controls */}
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             {/* Nuevo Grado Button */}
             <button
               onClick={openCreateModal}
-              className="bg-[#9BC294] text-white font-semibold rounded-full px-4 py-1.5 text-sm hover:bg-[#7aaa73] transition-colors flex items-center gap-1"
+              className="bg-[#5B9B95] text-white font-bold rounded-2xl px-5 py-2.5 text-sm hover:bg-[#4a8880] transition-all duration-300 shadow-md shadow-[#5B9B95]/20 flex items-center gap-2 hover:-translate-y-0.5 cursor-pointer"
             >
-              Nuevo Grado
-              <span className="text-lg leading-none">+</span>
+              Nuevo Curso <Plus size={16} />
             </button>
 
             {/* Sort Toggle */}
             <button
               onClick={() => setSortAsc(!sortAsc)}
-              className="bg-[#5B9B95] text-white rounded-full px-4 py-1.5 text-sm font-medium hover:bg-[#4a8a84] transition-colors"
+              className="bg-[#faf6df] text-[#9E5A78] border border-[#F1D87C]/60 rounded-2xl px-4 py-2.5 text-xs font-bold hover:bg-[#F1D87C]/15 transition-all duration-300 cursor-pointer"
             >
-              {sortAsc ? "Ascendente ▲" : "Descendente ▼"}
+              {sortAsc ? "Menor a Mayor ▲" : "Mayor a Menor ▼"}
             </button>
 
             {/* Search Bar */}
             <div className="relative">
               <input
                 type="text"
-                placeholder="Buscar grado o curso..."
+                placeholder="Buscar curso..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="bg-[#fdfdf1] border border-[#F1D87C] rounded-full px-4 py-1.5 pr-10 text-sm text-[#9E5A78] placeholder:text-[#C66B86]/50 focus:outline-none focus:border-[#5B9B95] w-48 transition-colors"
+                className="bg-white border border-[#F1D87C]/60 rounded-2xl px-4 py-2.5 pr-10 text-xs text-gray-700 placeholder:text-[#C66B86]/50 focus:outline-none focus:border-[#5B9B95] focus:ring-2 focus:ring-[#5B9B95]/10 w-44 md:w-52 transition-all"
               />
-              <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#5B9B95]" />
+              <Search className="absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#5B9B95]" />
             </div>
           </div>
         </div>
 
         {/* States: loading / error / content */}
         {loading ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {Array.from({ length: 6 }).map((_, i) => <SkeletonCard key={i} />)}
           </div>
         ) : error ? (
-          <div className="text-center py-16">
-            <p className="text-[#d4776a] text-lg mb-4">{error}</p>
+          <div className="text-center py-16 bg-white/60 rounded-3xl border border-[#d4776a]/20 p-8 max-w-md mx-auto shadow-sm">
+            <p className="text-[#d4776a] text-base font-semibold mb-4">{error}</p>
             <button
-              onClick={() => { setLoading(true); setError(null); getAsignaciones().then(setAsignaciones).catch((e) => setError(e.message)).finally(() => setLoading(false)) }}
-              className="bg-[#5B9B95] text-white rounded-full px-6 py-2 text-sm font-semibold hover:bg-[#4a8880] transition-colors"
+              onClick={() => {
+                setLoading(true)
+                setError(null)
+                getAsignaciones()
+                  .then(setAsignaciones)
+                  .catch((e) => setError(e.message))
+                  .finally(() => setLoading(false))
+              }}
+              className="bg-[#5B9B95] text-white rounded-2xl px-6 py-2.5 text-sm font-bold hover:bg-[#4a8880] transition-colors shadow-sm cursor-pointer"
             >
-              Reintentar
+              Intentar nuevamente
             </button>
           </div>
         ) : filteredAndSorted.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-            {filteredAndSorted.map((grade) => (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {filteredAndSorted.map((grade, idx) => (
               <button
                 key={grade.nivel}
                 onClick={() => {
                   setSelectedNivel(grade.nivel)
                   setExpandedParalelos({})
                 }}
-                className="bg-white rounded-2xl shadow-sm px-6 py-5 flex items-center gap-4 hover:shadow-md hover:scale-[1.02] transition-all duration-200 text-left border border-[#F1D87C]/40"
+                className="bg-white rounded-3xl shadow-sm hover:shadow-xl hover:scale-[1.02] border border-[#F1D87C]/30 hover:border-[#5B9B95]/30 p-6 flex items-center gap-5 text-left transition-all duration-300 relative group overflow-hidden cursor-pointer"
               >
-                {/* Grade Number with Superscript */}
-                <div className="flex items-start">
-                  <span className="text-5xl font-bold text-[#5B9B95]">
+                {/* Visual background gradient hover effect */}
+                <div className="absolute inset-0 bg-gradient-to-br from-transparent to-[#5B9B95]/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                
+                {/* Grade Badge */}
+                <div className="w-16 h-16 rounded-2xl flex flex-col items-center justify-center bg-[#5B9B95]/10 text-[#5B9B95] font-black tracking-tighter relative z-10">
+                  <span className="text-3xl leading-none">
                     {grade.parsed.number || "?"}
                   </span>
-                  <sup className="text-lg font-bold text-[#5B9B95] ml-0.5">
+                  <span className="text-[10px] font-bold uppercase -mt-0.5">
                     {grade.parsed.ordinal}
-                  </sup>
+                  </span>
                 </div>
 
                 {/* Grade Info */}
-                <div>
-                  <div className="font-bold text-xl text-[#9E5A78]">
+                <div className="relative z-10 flex-1 space-y-1">
+                  <div className="font-black text-lg md:text-xl text-[#9E5A78] leading-tight group-hover:text-[#5B9B95] transition-colors">
                     {grade.nivel}
                   </div>
-                  <div className="text-[#C66B86] text-sm">
-                    {grade.asignaciones.length} curso{grade.asignaciones.length !== 1 ? "s" : ""}
+                  <div className="flex items-center gap-1.5 text-xs text-[#C66B86] font-semibold">
+                    <Award size={13} />
+                    <span>{grade.asignaciones.length} paralelo{grade.asignaciones.length !== 1 ? "s" : ""}</span>
                   </div>
+                </div>
+
+                <div className="text-gray-300 group-hover:text-[#5B9B95] transition-colors relative z-10">
+                  <ArrowRight size={18} className="transform group-hover:translate-x-1 transition-transform" />
                 </div>
               </button>
             ))}
           </div>
         ) : (
-          <div className="text-center py-12">
-            <p className="text-[#C66B86] text-lg">No se encontraron grados</p>
+          <div className="text-center py-20 bg-white/40 rounded-3xl border border-dashed border-gray-200">
+            <p className="text-[#C66B86] font-bold text-lg">No se encontraron cursos asignados</p>
+            <p className="text-xs text-[#C66B86]/70 mt-1">Haz clic en &quot;Nuevo Curso&quot; para registrar uno.</p>
           </div>
         )}
       </main>
 
-      {/* Floating Panel Overlay */}
+      {/* Floating Panel Overlay (Sections list) */}
       {selectedNivel && modalNivelData && (
         <div
-          className="fixed inset-0 z-40 flex items-center justify-center"
-          style={{ backgroundColor: "rgba(0,0,0,0.35)" }}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-md"
+          style={{ backgroundColor: "rgba(30,18,24,0.4)" }}
           onClick={() => setSelectedNivel(null)}
         >
           <div
-            className="bg-[#fdfdf1] rounded-3xl shadow-2xl w-full max-w-xs mx-4 overflow-hidden"
+            className="bg-[#fdfdf1] rounded-3xl shadow-2xl w-full max-w-sm overflow-hidden border border-[#F1D87C]/30 flex flex-col animate-in fade-in zoom-in-95 duration-200"
             onClick={(e) => e.stopPropagation()}
-            style={{ maxHeight: "90vh", overflowY: "auto" }}
+            style={{ maxHeight: "85vh" }}
           >
             {/* Panel Header */}
             <div
-              className="px-6 pt-5 pb-4 text-center relative"
+              className="px-6 py-6 text-center relative text-white"
               style={{
                 background: "linear-gradient(135deg, #9E5A78 0%, #C66B86 100%)",
               }}
             >
-              <h2 className="text-white font-bold text-2xl">{selectedNivel}</h2>
-              <p className="text-white/80 text-sm mt-0.5">Selecciona una sección</p>
-              {/* Edit button */}
-              <button className="absolute right-10 top-5 text-white/80 hover:text-white transition-colors">
-                <Edit2 size={16} />
-              </button>
+              <span className="inline-block p-2 bg-white/10 rounded-2xl mb-1.5 text-white/90">
+                <Sparkles size={20} />
+              </span>
+              <h2 className="font-black text-2xl tracking-tight leading-none">{selectedNivel}</h2>
+              <p className="text-white/80 text-xs font-semibold mt-1 tracking-wide uppercase">Selecciona un paralelo</p>
+              
               {/* Close button */}
               <button
                 onClick={() => setSelectedNivel(null)}
-                className="absolute right-4 top-5 text-white/80 hover:text-white transition-colors"
+                className="absolute right-4 top-4 p-1 rounded-xl text-white/80 hover:bg-white/10 hover:text-white transition-all cursor-pointer"
+                aria-label="Cerrar panel"
               >
-                <X size={16} />
+                <X size={18} />
               </button>
             </div>
 
             {/* Sections List */}
-            <div className="px-4 py-4 space-y-2">
+            <div className="px-5 py-5 space-y-3 overflow-y-auto flex-1 bg-gradient-to-b from-white/30 to-[#fdfdf1]">
               {Array.from(modalNivelData.paralelos.entries()).map(([paralelo, asgns]) => {
                 const isExpanded = expandedParalelos[paralelo]
                 return (
-                  <div key={paralelo}>
-                    <div
-                      className={`flex items-center justify-between rounded-2xl px-4 py-3 transition-all duration-200 ${
+                  <div key={paralelo} className="space-y-1">
+                    <button
+                      onClick={() => toggleParalelo(paralelo)}
+                      className={`w-full flex items-center justify-between rounded-2xl px-4 py-3.5 text-left transition-all duration-300 border bg-white cursor-pointer ${
                         isExpanded
-                          ? "bg-white shadow-sm border border-[#F1D87C]/50 rounded-b-none"
-                          : "bg-white shadow-sm border border-transparent hover:border-[#F1D87C]/50"
+                          ? "shadow-md border-[#F1D87C] rounded-b-none"
+                          : "shadow-sm border-gray-100 hover:border-[#F1D87C]"
                       }`}
                     >
-                      <span className="font-semibold text-[#5B5B5B] text-sm">
-                        {selectedNivel} &quot;{paralelo}&quot;
+                      <span className="font-bold text-gray-700 text-sm flex items-center gap-2">
+                        <span className="w-5 h-5 rounded-lg flex items-center justify-center bg-[#5B9B95]/15 text-[#5B9B95] font-black text-xs">
+                          {paralelo}
+                        </span>
+                        Sección &quot;{paralelo}&quot;
                       </span>
-                      <div className="flex items-center gap-2">
-                        <button className="text-[#5B9B95] hover:text-[#4a8880] transition-colors">
-                          <Edit2 size={15} />
-                        </button>
-                        <button
-                          onClick={() => toggleParalelo(paralelo)}
-                          className="text-[#5B9B95] hover:text-[#4a8880] transition-colors"
-                        >
-                          {isExpanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
-                        </button>
+                      <div className="flex items-center gap-2 text-[#5B9B95]">
+                        {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
                       </div>
-                    </div>
+                    </button>
 
                     {/* Expanded subjects */}
                     {isExpanded && (
-                      <div className="bg-white rounded-b-2xl border border-t-0 border-[#F1D87C]/50 shadow-sm px-4 pb-3">
-                        <div className="space-y-2 pt-2">
+                      <div className="bg-white rounded-b-2xl border border-t-0 border-[#F1D87C]/50 shadow-sm px-4 pb-3.5 pt-1.5 space-y-2 animate-in slide-in-from-top-2 duration-200">
+                        <div className="h-px bg-gray-100 w-full mb-2" />
+                        <div className="space-y-1.5">
                           {asgns.map((a) => (
                             <button
                               key={a.idDocenteCursoMateria}
-                              onClick={() =>
+                              onClick={() => {
+                                setSelectedNivel(null)
                                 router.push(
                                   `/curso/${a.idDocenteCursoMateria}/${encodeURIComponent(a.materia)}`
                                 )
-                              }
-                              className="w-full flex items-center justify-between hover:bg-[#fdfdf1] rounded-xl px-2 py-1 transition-colors -mx-2"
+                              }}
+                              className="w-full flex items-center justify-between hover:bg-[#5B9B95]/10 rounded-xl px-3 py-2.5 transition-colors cursor-pointer group"
                             >
                               <div className="flex items-center gap-2">
                                 <span
                                   className="w-2.5 h-2.5 rounded-full flex-shrink-0"
                                   style={{ backgroundColor: "#C66B86" }}
                                 />
-                                <span className="text-sm text-[#5B5B5B] font-medium">
+                                <span className="text-sm text-gray-700 font-bold group-hover:text-[#9E5A78]">
                                   {a.materia}
                                 </span>
                               </div>
+                              <ArrowRight size={14} className="text-gray-300 group-hover:text-[#5B9B95] transform group-hover:translate-x-0.5 transition-all" />
                             </button>
                           ))}
                         </div>
@@ -470,11 +516,10 @@ export function GradesPanelPage() {
                 )
               })}
 
-              {/* Add new section button */}
-              <button className="w-full flex items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-[#5B9B95]/40 text-[#5B9B95] text-sm font-semibold py-3 hover:bg-[#5B9B95]/5 transition-colors mt-1">
-                <Plus size={16} />
-                Añadir nueva sección
-              </button>
+              {/* Add new section note */}
+              <p className="text-[10px] text-[#C66B86] text-center italic mt-2 leading-relaxed">
+                ¿Falta un paralelo o asignatura? Haz clic en el botón <strong>&quot;Nuevo Curso&quot;</strong> de la cabecera para agregarlo en segundos.
+              </p>
             </div>
           </div>
         </div>
@@ -484,7 +529,7 @@ export function GradesPanelPage() {
       {isCreateModalOpen && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-md"
-          style={{ backgroundColor: "rgba(158, 90, 120, 0.2)" }}
+          style={{ backgroundColor: "rgba(30,18,24,0.4)" }}
           onClick={() => { if (!submitting) setIsCreateModalOpen(false) }}
         >
           <div
@@ -494,45 +539,46 @@ export function GradesPanelPage() {
           >
             {/* Header */}
             <div
-              className="px-6 py-5 text-center relative"
+              className="px-6 py-6 text-center relative text-white"
               style={{
                 background: "linear-gradient(135deg, #9E5A78 0%, #C66B86 100%)",
               }}
             >
-              <h2 className="text-white font-bold text-2xl">Nuevo Grado o Curso</h2>
-              <p className="text-white/80 text-sm mt-0.5">Asigna una materia a un grado académico</p>
+              <h2 className="font-black text-2xl tracking-tight">Nuevo Grado o Curso</h2>
+              <p className="text-white/80 text-xs font-semibold mt-1 tracking-wide uppercase">Asigna una materia a un grado académico</p>
+              
               <button
                 onClick={() => { if (!submitting) setIsCreateModalOpen(false) }}
-                className="absolute right-4 top-5 text-white/80 hover:text-white transition-colors"
+                className="absolute right-4 top-4 p-1.5 rounded-xl text-white/80 hover:bg-white/10 hover:text-white transition-all cursor-pointer"
                 disabled={submitting}
               >
-                <X size={20} />
+                <X size={18} />
               </button>
             </div>
 
             {/* Content Form */}
             {catalogsLoading ? (
-              <div className="flex flex-col items-center justify-center py-16 px-6 gap-3">
+              <div className="flex flex-col items-center justify-center py-20 px-6 gap-3">
                 <div className="w-10 h-10 border-4 border-[#5B9B95] border-t-transparent rounded-full animate-spin" />
-                <p className="text-[#9E5A78] font-medium text-sm">Cargando catálogos del sistema...</p>
+                <p className="text-[#9E5A78] font-bold text-sm">Cargando catálogos del sistema...</p>
               </div>
             ) : (
-              <form onSubmit={handleCreateAssignment} className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
+              <form onSubmit={handleCreateAssignment} className="flex-1 overflow-y-auto px-6 py-5 space-y-4 bg-white/30">
                 {modalError && (
-                  <div className="bg-[#fdf0f0] border border-[#f5c6c6] text-[#d4776a] text-xs rounded-xl px-4 py-3 font-medium">
+                  <div className="bg-[#fdf0f0] border border-[#f5c6c6] text-[#d4776a] text-xs rounded-2xl px-4 py-3 font-semibold text-center">
                     {modalError}
                   </div>
                 )}
 
                 {/* Año Lectivo Selector */}
-                <div className="space-y-1">
-                  <label className="block text-[#9E5A78] text-xs font-bold uppercase tracking-wider">
+                <div className="space-y-1.5">
+                  <label className="block text-[#9E5A78] text-[10px] font-black uppercase tracking-wider pl-1">
                     Año Lectivo
                   </label>
                   <select
                     value={selectedAnioId}
                     onChange={(e) => setSelectedAnioId(e.target.value)}
-                    className="w-full bg-white border border-[#F1D87C]/60 rounded-xl px-3 py-2 text-sm text-[#5B5B5B] focus:outline-none focus:border-[#5B9B95] transition-colors"
+                    className="w-full bg-white border border-[#F1D87C]/60 focus:border-[#5B9B95] rounded-2xl px-3 py-2.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#5B9B95]/10 transition-colors"
                   >
                     {aniosLectivos.map((a) => (
                       <option key={a.idAnioLectivo} value={a.idAnioLectivo}>
@@ -543,22 +589,22 @@ export function GradesPanelPage() {
                 </div>
 
                 {/* Nivel Selector */}
-                <div className="space-y-1">
-                  <label className="block text-[#9E5A78] text-xs font-bold uppercase tracking-wider">
+                <div className="space-y-1.5">
+                  <label className="block text-[#9E5A78] text-[10px] font-black uppercase tracking-wider pl-1">
                     Nivel Educativo (Grado)
                   </label>
                   <select
                     value={selectedNivelId}
                     onChange={(e) => setSelectedNivelId(e.target.value)}
-                    className="w-full bg-white border border-[#F1D87C]/60 rounded-xl px-3 py-2 text-sm text-[#5B5B5B] focus:outline-none focus:border-[#5B9B95] transition-colors"
+                    className="w-full bg-white border border-[#F1D87C]/60 focus:border-[#5B9B95] rounded-2xl px-3 py-2.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#5B9B95]/10 transition-colors"
                   >
                     {niveles.map((n) => (
                       <option key={n.idNivel} value={n.idNivel}>
                         {n.nombre}
                       </option>
                     ))}
-                    <option value="NEW" className="text-[#5B9B95] font-semibold">
-                      + Crear nuevo nivel...
+                    <option value="NEW" className="text-[#5B9B95] font-black">
+                      + Crear nuevo grado...
                     </option>
                   </select>
 
@@ -568,27 +614,28 @@ export function GradesPanelPage() {
                       placeholder="Ej. Octavo de Básica, Tercero BGU..."
                       value={customNivelName}
                       onChange={(e) => setCustomNivelName(e.target.value)}
-                      className="w-full bg-white border border-[#5B9B95] rounded-xl px-3 py-2 text-sm text-[#5B5B5B] focus:outline-none mt-2 placeholder:text-[#5B5B5B]/40"
+                      required
+                      className="w-full bg-white border border-[#5B9B95] rounded-2xl px-4 py-2.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#5B9B95]/10 mt-2 placeholder:text-gray-400 animate-in slide-in-from-top-2"
                     />
                   )}
                 </div>
 
                 {/* Paralelo Selector */}
-                <div className="space-y-1">
-                  <label className="block text-[#9E5A78] text-xs font-bold uppercase tracking-wider">
+                <div className="space-y-1.5">
+                  <label className="block text-[#9E5A78] text-[10px] font-black uppercase tracking-wider pl-1">
                     Paralelo (Sección)
                   </label>
                   <select
                     value={selectedParaleloId}
                     onChange={(e) => setSelectedParaleloId(e.target.value)}
-                    className="w-full bg-white border border-[#F1D87C]/60 rounded-xl px-3 py-2 text-sm text-[#5B5B5B] focus:outline-none focus:border-[#5B9B95] transition-colors"
+                    className="w-full bg-white border border-[#F1D87C]/60 focus:border-[#5B9B95] rounded-2xl px-3 py-2.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#5B9B95]/10 transition-colors"
                   >
                     {paralelos.map((p) => (
                       <option key={p.idParalelo} value={p.idParalelo}>
                         Paralelo {p.nombre}
                       </option>
                     ))}
-                    <option value="NEW" className="text-[#5B9B95] font-semibold">
+                    <option value="NEW" className="text-[#5B9B95] font-black">
                       + Crear nuevo paralelo...
                     </option>
                   </select>
@@ -599,64 +646,66 @@ export function GradesPanelPage() {
                       placeholder="Ej. A, B, C, Único..."
                       value={customParaleloName}
                       onChange={(e) => setCustomParaleloName(e.target.value)}
-                      className="w-full bg-white border border-[#5B9B95] rounded-xl px-3 py-2 text-sm text-[#5B5B5B] focus:outline-none mt-2 placeholder:text-[#5B5B5B]/40"
+                      required
+                      className="w-full bg-white border border-[#5B9B95] rounded-2xl px-4 py-2.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#5B9B95]/10 mt-2 placeholder:text-gray-400 animate-in slide-in-from-top-2"
                     />
                   )}
                 </div>
 
                 {/* Materia Selector */}
-                <div className="space-y-1">
-                  <label className="block text-[#9E5A78] text-xs font-bold uppercase tracking-wider">
+                <div className="space-y-1.5">
+                  <label className="block text-[#9E5A78] text-[10px] font-black uppercase tracking-wider pl-1">
                     Materia (Asignatura)
                   </label>
                   <select
                     value={selectedMateriaId}
                     onChange={(e) => setSelectedMateriaId(e.target.value)}
-                    className="w-full bg-white border border-[#F1D87C]/60 rounded-xl px-3 py-2 text-sm text-[#5B5B5B] focus:outline-none focus:border-[#5B9B95] transition-colors"
+                    className="w-full bg-white border border-[#F1D87C]/60 focus:border-[#5B9B95] rounded-2xl px-3 py-2.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#5B9B95]/10 transition-colors"
                   >
                     {materias.map((m) => (
                       <option key={m.idMateria} value={m.idMateria}>
                         {m.nombre}
                       </option>
                     ))}
-                    <option value="NEW" className="text-[#5B9B95] font-semibold">
+                    <option value="NEW" className="text-[#5B9B95] font-black">
                       + Crear nueva materia...
                     </option>
                   </select>
 
                   {selectedMateriaId === "NEW" && (
-                    <div className="space-y-2 mt-2">
+                    <div className="space-y-2 mt-2 animate-in slide-in-from-top-2">
                       <input
                         type="text"
                         placeholder="Ej. Matemática, Emprendimiento..."
                         value={customMateriaName}
                         onChange={(e) => setCustomMateriaName(e.target.value)}
-                        className="w-full bg-white border border-[#5B9B95] rounded-xl px-3 py-2 text-sm text-[#5B5B5B] focus:outline-none placeholder:text-[#5B5B5B]/40"
+                        required
+                        className="w-full bg-white border border-[#5B9B95] rounded-2xl px-4 py-2.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#5B9B95]/10 placeholder:text-gray-400"
                       />
                       <textarea
                         placeholder="Descripción breve (opcional)..."
                         value={customMateriaDesc}
                         onChange={(e) => setCustomMateriaDesc(e.target.value)}
-                        className="w-full bg-white border border-[#5B9B95]/60 rounded-xl px-3 py-2 text-sm text-[#5B5B5B] focus:outline-none placeholder:text-[#5B5B5B]/40 h-16 resize-none"
+                        className="w-full bg-white border border-[#5B9B95]/60 focus:border-[#5B9B95] rounded-2xl px-4 py-2.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#5B9B95]/10 placeholder:text-gray-400 h-16 resize-none"
                       />
                     </div>
                   )}
                 </div>
 
                 {/* Actions */}
-                <div className="flex gap-3 pt-3">
+                <div className="flex gap-3 pt-4 border-t border-gray-100 mt-4">
                   <button
                     type="button"
                     onClick={() => setIsCreateModalOpen(false)}
                     disabled={submitting}
-                    className="flex-1 py-2 px-4 rounded-full border border-[#C66B86] text-[#C66B86] hover:bg-[#C66B86]/5 transition-colors text-sm font-semibold disabled:opacity-50"
+                    className="flex-1 py-2.5 px-4 rounded-2xl border border-[#C66B86] text-[#C66B86] font-bold hover:bg-[#C66B86]/5 transition-colors text-xs disabled:opacity-50 cursor-pointer"
                   >
                     Cancelar
                   </button>
                   <button
                     type="submit"
                     disabled={submitting}
-                    className="flex-1 py-2 px-4 rounded-full bg-[#5B9B95] text-white hover:bg-[#4a8880] transition-colors text-sm font-semibold flex items-center justify-center gap-1.5 disabled:opacity-50"
+                    className="flex-1 py-2.5 px-4 rounded-2xl bg-[#5B9B95] text-white font-bold hover:bg-[#4a8880] transition-colors text-xs flex items-center justify-center gap-1.5 disabled:opacity-50 cursor-pointer shadow-md shadow-[#5B9B95]/10"
                   >
                     {submitting ? (
                       <>

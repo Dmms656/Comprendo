@@ -10,7 +10,7 @@ public class ResultadoRepository(ComprendoDbContext dbContext) : IResultadoRepos
         int idLeccion,
         CancellationToken cancellationToken = default)
     {
-        return await (
+        var detalles = await (
             from r in dbContext.ResultadosLeccion
             join l in dbContext.Lecciones on r.IdLeccion equals l.IdLeccion
             join e in dbContext.Estudiantes on r.IdEstudiante equals e.IdEstudiante
@@ -37,6 +37,26 @@ public class ResultadoRepository(ComprendoDbContext dbContext) : IResultadoRepos
                 FechaInicio = r.FechaInicio,
                 FechaFinalizacion = r.FechaFinalizacion
             }).ToListAsync(cancellationToken);
+
+        if (detalles.Count > 0)
+        {
+            var respuestas = await dbContext.RespuestasEstudiantes
+                .Where(re => re.Pregunta.IdLeccion == idLeccion)
+                .ToListAsync(cancellationToken);
+
+            var respuestasMap = respuestas.GroupBy(re => re.IdEstudiante)
+                .ToDictionary(g => g.Key, g => g.ToList());
+
+            foreach (var detalle in detalles)
+            {
+                if (respuestasMap.TryGetValue(detalle.IdEstudiante, out var studentResponses))
+                {
+                    detalle.Respuestas = studentResponses;
+                }
+            }
+        }
+
+        return detalles;
     }
 
     public Task<bool> LeccionBelongsToDocenteAsync(

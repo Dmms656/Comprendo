@@ -123,7 +123,9 @@ public static class MappingExtensions
         entity.Porcentaje,
         entity.Estado.ToString().ToUpperInvariant(),
         entity.FechaInicio,
-        entity.FechaFinalizacion);
+        entity.FechaFinalizacion,
+        entity.Respuestas.Select(r => r.ToDto()).ToList(),
+        entity.Respuestas.ToDictionary(r => r.IdPregunta.ToString(), r => r.EsCorrecta ?? false));
 
     public static DashboardDto ToDto(this DashboardResumen entity) => new(
         entity.TotalLecciones,

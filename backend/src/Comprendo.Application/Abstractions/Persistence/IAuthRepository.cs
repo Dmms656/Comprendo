@@ -7,4 +7,6 @@ public interface IAuthRepository
     Task<Usuario?> GetUsuarioByEmailAsync(string email, CancellationToken cancellationToken = default);
 
     Task<Docente?> GetDocenteByUsuarioIdAsync(int usuarioId, CancellationToken cancellationToken = default);
+
+    Task<Docente> CreateDocenteAsync(Docente entity, CancellationToken cancellationToken = default);
 }

@@ -46,4 +46,5 @@ public class ResultadoLeccionDetalle
     public EstadoResultadoLeccion Estado { get; set; }
     public DateTimeOffset? FechaInicio { get; set; }
     public DateTimeOffset? FechaFinalizacion { get; set; }
+    public List<RespuestaEstudiante> Respuestas { get; set; } = [];
 }

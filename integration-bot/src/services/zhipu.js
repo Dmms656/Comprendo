@@ -22,8 +22,12 @@ const GEMINI_URL    = () =>
 const GROQ_URL   = "https://api.groq.com/openai/v1/chat/completions";
 const GROQ_MODEL = process.env.GROQ_MODEL || "llama-3.3-70b-versatile";
 
-const XAI_URL   = "https://api.x.ai/v1/chat/completions";
-const XAI_MODEL = process.env.XAI_MODEL || "grok-2-1212";
+const XAI_URL = "https://api.x.ai/v1/chat/completions";
+// grok-2-1212 ya no está disponible; usar grok-3 o grok-4.3 (configurable en Render)
+const XAI_MODELS = (process.env.XAI_MODEL || "grok-3,grok-4.3,grok-2-latest")
+  .split(",")
+  .map((m) => m.trim())
+  .filter(Boolean);
 
 /** Groq (gsk_...) o xAI/Grok (xai-...) según el prefijo de GROQ_API_KEY */
 function resolveLlmFromGroqEnv() {
@@ -31,10 +35,15 @@ function resolveLlmFromGroqEnv() {
   if (!apiKey) return null;
 
   if (apiKey.startsWith("xai-")) {
-    return { name: "xAI", url: XAI_URL, apiKey, model: XAI_MODEL };
+    return {
+      name: "xAI",
+      url: XAI_URL,
+      apiKey,
+      models: XAI_MODELS.length ? XAI_MODELS : ["grok-3"]
+    };
   }
 
-  return { name: "Groq", url: GROQ_URL, apiKey, model: GROQ_MODEL };
+  return { name: "Groq", url: GROQ_URL, apiKey, models: [GROQ_MODEL] };
 }
 
 // ── Prompt compartido ─────────────────────────────────────────────
@@ -162,38 +171,53 @@ async function callGemini(topic, promptOptions) {
 
 // ── Llamada OpenAI-compatible (Groq o xAI) ───────────────────────
 async function callOpenAICompatible(provider, topic, promptOptions) {
-  console.log(`[AI] ${provider.name} call → model="${provider.model}", topic="${topic}"`);
+  let lastError;
 
-  const res = await fetch(provider.url, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${provider.apiKey}`,
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
-      model: provider.model,
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt(topic, promptOptions) }
-      ],
-      temperature: 0.85,
-      max_tokens: 400
-    }),
-    signal: AbortSignal.timeout(30000)
-  });
+  for (const model of provider.models) {
+    try {
+      console.log(`[AI] ${provider.name} call → model="${model}", topic="${topic}"`);
 
-  const data = await res.json();
+      const res = await fetch(provider.url, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${provider.apiKey}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          model,
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: userPrompt(topic, promptOptions) }
+          ],
+          temperature: 0.85,
+          max_tokens: 400
+        }),
+        signal: AbortSignal.timeout(30000)
+      });
 
-  if (!res.ok) {
-    throw new Error(
-      `${provider.name} ${res.status}: ${JSON.stringify(data?.error || data)}`
-    );
+      const data = await res.json();
+
+      if (!res.ok) {
+        const msg = data?.error?.message || JSON.stringify(data?.error || data);
+        throw new Error(`${provider.name} ${res.status}: ${msg}`);
+      }
+
+      const text = data?.choices?.[0]?.message?.content;
+      if (!text) throw new Error(`${provider.name}: respuesta vacía o formato inesperado`);
+
+      return text;
+    } catch (error) {
+      lastError = error;
+      const isModelMissing = /model not found/i.test(String(error.message));
+      if (isModelMissing && provider.models.length > 1) {
+        console.warn(`[AI] ${provider.name} modelo "${model}" no disponible, probando siguiente...`);
+        continue;
+      }
+      throw error;
+    }
   }
 
-  const text = data?.choices?.[0]?.message?.content;
-  if (!text) throw new Error(`${provider.name}: respuesta vacía o formato inesperado`);
-
-  return text;
+  throw lastError || new Error(`${provider.name}: ningún modelo disponible`);
 }
 
 // ── Parser compartido ─────────────────────────────────────────────

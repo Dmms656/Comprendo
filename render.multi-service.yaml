@@ -1,0 +1,73 @@
+# Blueprint alternativo: 3 servicios separados en Render.
+# Útil si necesitas escalar o desplegar componentes por separado.
+# Docs: docs/DEPLOY.md
+
+services:
+  - type: web
+    name: comprendo-api
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: ASPNETCORE_ENVIRONMENT
+        value: Production
+      - key: ConnectionStrings__DefaultConnection
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+      - key: Jwt__Secret
+        generateValue: true
+      - key: Jwt__Issuer
+        value: Comprendo
+      - key: Jwt__Audience
+        value: Comprendo.Api
+      - key: Jwt__ExpirationMinutes
+        value: "480"
+      - key: Integration__ApiKey
+        generateValue: true
+      - key: CORS_ALLOWED_ORIGINS
+        sync: false
+
+  - type: web
+    name: comprendo-bot
+    runtime: node
+    rootDir: integration-bot
+    plan: free
+    buildCommand: npm ci
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: CORE_API_URL
+        sync: false
+      - key: INTEGRATION_API_KEY
+        fromService:
+          type: web
+          name: comprendo-api
+          envVarKey: Integration__ApiKey
+      - key: ZHIPU_API_KEY
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: CORS_ALLOWED_ORIGINS
+        sync: false
+
+  - type: web
+    name: comprendo-frontend
+    runtime: node
+    rootDir: frontend
+    plan: free
+    buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm build
+    startCommand: pnpm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NEXT_PUBLIC_API_URL
+        sync: false
+      - key: NEXT_PUBLIC_BOT_API_URL
+        sync: false

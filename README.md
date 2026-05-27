@@ -74,6 +74,17 @@ Antes de instalar el proyecto, asegúrate de contar con:
 
 ---
 
+## Despliegue en producción
+
+Para publicar en **Supabase** (base de datos) y **Render**, sigue la guía detallada:
+
+→ **[docs/DEPLOY.md](docs/DEPLOY.md)**
+
+**Recomendado:** un solo servicio en Render (`render.yaml` + `deploy/Dockerfile`) con API, bot y frontend juntos.  
+**Alternativa:** tres servicios separados (`render.multi-service.yaml`).
+
+---
+
 ## Instalación del proyecto
 
 ### 1. Clonar el repositorio

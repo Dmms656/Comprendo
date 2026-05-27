@@ -1,5 +1,5 @@
 {
   "ConnectionStrings": {
-    "DefaultConnection": "Host=localhost;Port=5432;Database=COMPRENDO;Username=postgres;Password=TU_PASSWORD"
+    "DefaultConnection": "postgresql://postgres.vophfrxqguobngyplrdc:TU_PASSWORD@aws-1-us-east-1.pooler.supabase.com:5432/postgres"
   }
 }

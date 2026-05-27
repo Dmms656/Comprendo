@@ -1,0 +1,44 @@
+# Blueprint Render — Comprendo (UN SOLO SERVICIO)
+# API + Bot + Frontend en una instancia (nginx + supervisord).
+# Base de datos: Supabase. Docs: docs/DEPLOY.md
+#
+# Alternativa (3 servicios): render.multi-service.yaml
+
+services:
+  - type: web
+    name: comprendo
+    runtime: docker
+    dockerfilePath: ./deploy/Dockerfile
+    dockerContext: .
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: ASPNETCORE_ENVIRONMENT
+        value: Production
+      - key: ConnectionStrings__DefaultConnection
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+      - key: Jwt__Secret
+        generateValue: true
+      - key: Jwt__Issuer
+        value: Comprendo
+      - key: Jwt__Audience
+        value: Comprendo.Api
+      - key: Jwt__ExpirationMinutes
+        value: "480"
+      - key: Integration__ApiKey
+        generateValue: true
+      - key: INTEGRATION_API_KEY
+        fromService:
+          type: web
+          name: comprendo
+          envVarKey: Integration__ApiKey
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: ZHIPU_API_KEY
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: CORS_ALLOWED_ORIGINS
+        sync: false

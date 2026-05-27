@@ -6,9 +6,19 @@ import { generateQuestion } from "./services/zhipu.js";
 const PORT = Number(process.env.PORT) || 3000;
 const app = express();
 
-// Middleware de CORS para permitir peticiones desde el frontend (puerto 3000)
+const corsAllowedOrigins = (process.env.CORS_ALLOWED_ORIGINS || "http://localhost:3000,http://localhost:3001")
+  .split(",")
+  .map((o) => o.trim())
+  .filter(Boolean);
+
+// Middleware de CORS para peticiones del panel docente
 app.use((req, res, next) => {
-  res.header("Access-Control-Allow-Origin", "*");
+  const origin = req.headers.origin;
+  if (origin && corsAllowedOrigins.includes(origin)) {
+    res.header("Access-Control-Allow-Origin", origin);
+  } else if (process.env.NODE_ENV !== "production") {
+    res.header("Access-Control-Allow-Origin", "*");
+  }
   res.header("Access-Control-Allow-Headers", "Authorization, Origin, X-Requested-With, Content-Type, Accept, X-Integration-Api-Key");
   res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
   if (req.method === "OPTIONS") {

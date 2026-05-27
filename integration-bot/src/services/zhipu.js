@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────────
 // Servicio de generación de preguntas con IA
-// Cadena de fallback: Gemini → Groq → pregunta hardcodeada
+// Cadena de fallback: Gemini → Groq o xAI (GROQ_API_KEY) → pregunta hardcodeada
 // ─────────────────────────────────────────────────────────────────
 
 const FALLBACK_QUESTION = {
@@ -19,8 +19,23 @@ const GEMINI_MODEL  = process.env.GEMINI_MODEL  || "gemini-2.0-flash";
 const GEMINI_URL    = () =>
   `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${process.env.GEMINI_API_KEY}`;
 
-const GROQ_URL      = "https://api.groq.com/openai/v1/chat/completions";
-const GROQ_MODEL    = process.env.GROQ_MODEL || "llama-3.3-70b-versatile";
+const GROQ_URL   = "https://api.groq.com/openai/v1/chat/completions";
+const GROQ_MODEL = process.env.GROQ_MODEL || "llama-3.3-70b-versatile";
+
+const XAI_URL   = "https://api.x.ai/v1/chat/completions";
+const XAI_MODEL = process.env.XAI_MODEL || "grok-2-1212";
+
+/** Groq (gsk_...) o xAI/Grok (xai-...) según el prefijo de GROQ_API_KEY */
+function resolveLlmFromGroqEnv() {
+  const apiKey = process.env.GROQ_API_KEY?.trim();
+  if (!apiKey) return null;
+
+  if (apiKey.startsWith("xai-")) {
+    return { name: "xAI", url: XAI_URL, apiKey, model: XAI_MODEL };
+  }
+
+  return { name: "Groq", url: GROQ_URL, apiKey, model: GROQ_MODEL };
+}
 
 // ── Prompt compartido ─────────────────────────────────────────────
 const systemPrompt =
@@ -145,39 +160,38 @@ async function callGemini(topic, promptOptions) {
   return text;
 }
 
-// ── Llamada a Groq (OpenAI-compatible) ───────────────────────────
-async function callGroq(topic, promptOptions) {
-  const apiKey = process.env.GROQ_API_KEY;
-  if (!apiKey) throw new Error("GROQ_API_KEY no configurada");
+// ── Llamada OpenAI-compatible (Groq o xAI) ───────────────────────
+async function callOpenAICompatible(provider, topic, promptOptions) {
+  console.log(`[AI] ${provider.name} call → model="${provider.model}", topic="${topic}"`);
 
-  console.log(`[AI] Groq call → model="${GROQ_MODEL}", topic="${topic}"`);
-
-  const res = await fetch(GROQ_URL, {
+  const res = await fetch(provider.url, {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${apiKey}`,
+      Authorization: `Bearer ${provider.apiKey}`,
       "Content-Type": "application/json"
     },
     body: JSON.stringify({
-      model: GROQ_MODEL,
+      model: provider.model,
       messages: [
         { role: "system", content: systemPrompt },
-        { role: "user",   content: userPrompt(topic, promptOptions) }
+        { role: "user", content: userPrompt(topic, promptOptions) }
       ],
       temperature: 0.85,
       max_tokens: 400
     }),
-    signal: AbortSignal.timeout(10000)   // 10 s timeout
+    signal: AbortSignal.timeout(30000)
   });
 
   const data = await res.json();
 
   if (!res.ok) {
-    throw new Error(`Groq ${res.status}: ${JSON.stringify(data?.error || data)}`);
+    throw new Error(
+      `${provider.name} ${res.status}: ${JSON.stringify(data?.error || data)}`
+    );
   }
 
   const text = data?.choices?.[0]?.message?.content;
-  if (!text) throw new Error("Groq: respuesta vacía o formato inesperado");
+  if (!text) throw new Error(`${provider.name}: respuesta vacía o formato inesperado`);
 
   return text;
 }
@@ -217,7 +231,7 @@ function parseQuestion(text) {
   return parsed;
 }
 
-// ── Función principal exportada — cadena Gemini → Groq → fallback ─
+// ── Función principal exportada — cadena Gemini → Groq/xAI → fallback ─
 /**
  * @param {string} topic
  * @param {{ existingQuestions?: Array<string|object>, questionIndex?: number, totalQuestions?: number, maxRetries?: number }} [options]
@@ -232,11 +246,21 @@ export async function generateQuestion(topic, options = {}) {
 
   const promptOptions = { existingQuestions, questionIndex, totalQuestions };
 
+  const llm = resolveLlmFromGroqEnv();
+
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
-    const providers = [
-      { name: "Gemini", call: () => callGemini(topic, promptOptions) },
-      { name: "Groq",   call: () => callGroq(topic, promptOptions)   }
-    ];
+    const providers = [];
+
+    if (process.env.GEMINI_API_KEY?.trim()) {
+      providers.push({ name: "Gemini", call: () => callGemini(topic, promptOptions) });
+    }
+
+    if (llm) {
+      providers.push({
+        name: llm.name,
+        call: () => callOpenAICompatible(llm, topic, promptOptions)
+      });
+    }
 
     for (const provider of providers) {
       try {

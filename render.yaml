@@ -36,8 +36,6 @@ services:
           envVarKey: Integration__ApiKey
       - key: TELEGRAM_BOT_TOKEN
         sync: false
-      - key: ZHIPU_API_KEY
-        sync: false
       - key: GROQ_API_KEY
         sync: false
       - key: CORS_ALLOWED_ORIGINS

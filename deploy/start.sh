@@ -10,6 +10,10 @@ if [ -z "$INTEGRATION_API_KEY" ] && [ -n "$Integration__ApiKey" ]; then
   export INTEGRATION_API_KEY="$Integration__ApiKey"
 fi
 
+# API .NET en puerto interno (nginx usa el PORT de Render)
+export ASPNETCORE_ENVIRONMENT="${ASPNETCORE_ENVIRONMENT:-Production}"
+export ASPNETCORE_URLS="http://127.0.0.1:8080"
+
 mkdir -p /var/log/nginx /run/nginx
 envsubst '${NGINX_PORT}' < /etc/nginx/templates/default.conf.template > /etc/nginx/sites-enabled/default.conf
 rm -f /etc/nginx/sites-enabled/default 2>/dev/null || true

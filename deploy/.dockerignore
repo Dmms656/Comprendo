@@ -1,0 +1,9 @@
+**/node_modules/
+**/bin/
+**/obj/
+**/.vs/
+**/.next/
+**/.git/
+**/appsettings.Local.json
+**/.env
+**/.env.local

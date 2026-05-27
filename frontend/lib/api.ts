@@ -26,7 +26,8 @@ import type {
 
 // ─── Base URL ─────────────────────────────────────────────────────────────────
 
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5000"
+// Vacío = mismo origen (despliegue unificado en Render con nginx)
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5253"
 
 // ─── Error class ─────────────────────────────────────────────────────────────
 
@@ -81,7 +82,7 @@ async function request<T>(
   return JSON.parse(text) as T
 }
 
-const BOT_URL = process.env.NEXT_PUBLIC_BOT_API_URL ?? "http://localhost:5000"
+const BOT_URL = process.env.NEXT_PUBLIC_BOT_API_URL ?? "http://localhost:3000"
 
 async function requestBot<T>(
   path: string,

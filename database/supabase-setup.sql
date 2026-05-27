@@ -1,0 +1,13 @@
+-- =============================================================================
+-- Comprendo — Inicialización en Supabase
+-- Ejecutar en: Supabase Dashboard → SQL Editor → New query
+-- =============================================================================
+-- 1. Pega el contenido completo de schema.sql y ejecuta (Run).
+-- 2. Opcional: ejecuta seed.sql para datos demo (solo desarrollo/staging).
+--
+-- Notas:
+-- - Supabase ya incluye la extensión pgcrypto; schema.sql es compatible.
+-- - Usa la conexión "Session mode" o "Transaction mode" del pooler en Render.
+-- - Para producción, prefiere la URI con SSL:
+--   Host=db.<ref>.supabase.co;Port=5432;Database=postgres;Username=postgres;
+--   Password=<password>;SSL Mode=Require;Trust Server Certificate=true

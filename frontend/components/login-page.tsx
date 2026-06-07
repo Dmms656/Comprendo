@@ -4,7 +4,6 @@ import { useState, useRef, useEffect } from "react"
 import { Eye, EyeOff, ArrowLeft, ShieldCheck } from "lucide-react"
 import { PublicLayout } from "@/components/public-layout"
 import { useAuth } from "@/hooks/useAuth"
-import { ApiError } from "@/lib/api"
 import { useRouter } from "next/navigation"
 
 export function LoginPage() {
@@ -83,11 +82,12 @@ export function LoginPage() {
     try {
       await login(email, password)
       // navigation handled inside useAuth
-    } catch (err) {
-      if (err instanceof ApiError) {
-        setCredentialsError(cleanErrorMessage(err.message))
+    } catch (err: any) {
+      const msg = err?.message ?? ""
+      if (msg) {
+        setCredentialsError(cleanErrorMessage(msg))
       } else {
-        setCredentialsError("Ocurrió un error al iniciar sesión. Intenta de nuevo.")
+        setCredentialsError("Su correo electrónico o contraseña son incorrectos. Por favor, verifique sus credenciales e intente de nuevo.")
       }
     } finally {
       setLoading(false)

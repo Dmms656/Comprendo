@@ -15,6 +15,7 @@ export function LoginPage() {
   const [password, setPassword] = useState("")
   const [loading, setLoading] = useState(false)
   const [emailError, setEmailError] = useState<string | null>(null)
+  const [credentialsError, setCredentialsError] = useState<string | null>(null)
   const [toastError, setToastError] = useState<string | null>(null)
   const toastTimerRef = useRef<NodeJS.Timeout | null>(null)
 
@@ -69,6 +70,9 @@ export function LoginPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
+    // Clear previous credentials error
+    setCredentialsError(null)
+
     const isEmailValid = validateEmail(email)
     if (!isEmailValid) {
       triggerToast("Por favor, corrige los errores antes de continuar.")
@@ -81,9 +85,9 @@ export function LoginPage() {
       // navigation handled inside useAuth
     } catch (err) {
       if (err instanceof ApiError) {
-        triggerToast(cleanErrorMessage(err.message))
+        setCredentialsError(cleanErrorMessage(err.message))
       } else {
-        triggerToast("Ocurrió un error al iniciar sesión. Intenta de nuevo.")
+        setCredentialsError("Ocurrió un error al iniciar sesión. Intenta de nuevo.")
       }
     } finally {
       setLoading(false)
@@ -203,11 +207,16 @@ export function LoginPage() {
                     id="password"
                     type={showPassword ? "text" : "password"}
                     value={password}
-                    onChange={(e) => setPassword(e.target.value)}
+                    onChange={(e) => {
+                      setPassword(e.target.value)
+                      if (credentialsError) setCredentialsError(null)
+                    }}
                     placeholder="••••••••"
                     required
                     disabled={loading}
-                    className="bg-white/80 border border-[#F1D87C]/60 focus:border-[#5B9B95] rounded-2xl px-4 py-3 w-full pr-11 text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#5B9B95]/20 transition-all duration-300 disabled:opacity-60"
+                    className={`bg-white/80 border focus:border-[#5B9B95] rounded-2xl px-4 py-3 w-full pr-11 text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#5B9B95]/20 transition-all duration-300 disabled:opacity-60 ${
+                      credentialsError ? "border-[#d4776a]/70" : "border-[#F1D87C]/60"
+                    }`}
                   />
                   <button
                     type="button"
@@ -218,6 +227,11 @@ export function LoginPage() {
                     {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                   </button>
                 </div>
+                {credentialsError && (
+                  <p className="text-xs text-[#d4776a] font-semibold pl-1 mt-1 animate-shake">
+                    {credentialsError}
+                  </p>
+                )}
               </div>
 
               {/* Submit button */}

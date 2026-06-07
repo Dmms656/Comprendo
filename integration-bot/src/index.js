@@ -38,6 +38,32 @@ const activeChats = new Map();
 // Key: chatId, Value: { idLeccion, idEstudiante, topic, preguntas[], currentIndex }
 const evaluationQueues = new Map();
 
+// Estado de las lecciones (Para agrupar respuestas y manejar el timeout)
+// Key: idLeccion (number), Value: { timer, totalEstudiantes, finishedCount, results: Map<chatId, { correctCount, messages }> }
+const activeLessons = new Map();
+
+async function closeLessonAndSendFeedback(lessonId) {
+    const lessonState = activeLessons.get(lessonId);
+    if (!lessonState) return;
+    
+    console.log(`Cerrando lección ${lessonId} y enviando resultados...`);
+    activeLessons.delete(lessonId); // Marcar como cerrada
+    
+    for (const [studentChatId, result] of lessonState.results.entries()) {
+        const totalQs = result.messages.length;
+        const msg = `📢 *Resultados Finales de la Evaluación*\n\nAciertos: ${result.correctCount} de ${totalQs}\n\n${result.messages.join("\n\n")}`;
+        try {
+            if (bot) await bot.sendMessage(studentChatId, msg, { parse_mode: "Markdown" });
+        } catch(e) {
+            console.error(`Failed to send final results to ${studentChatId}`, e.message);
+        }
+        
+        // Limpiar colas residuales por si se cerró por tiempo y no terminaron
+        evaluationQueues.delete(studentChatId);
+        activeChats.delete(studentChatId);
+    }
+}
+
 // Rastreo de registros pendientes por código de acceso de Telegram
 const pendingRegistrations = new Map();
 
@@ -374,12 +400,23 @@ if (TELEGRAM_BOT_TOKEN && TELEGRAM_BOT_TOKEN !== "tu_telegram_bot_token_aqui") {
       const correct = chatState.activeQuestion.correct || chatState.activeQuestion.claveRespuesta || chatState.activeQuestion.literalCorrecto;
       const isCorrect = text === correct;
 
-      // Responder al alumno en Telegram
-      const feedback = isCorrect 
-        ? "¡Correcto! Excelente trabajo. ✅" 
-        : `Incorrecto. ❌ La respuesta correcta era la ${correct}.`;
-      
-      await bot.sendMessage(chatId, feedback);
+      // El feedback global se enviará al finalizar la clase.
+
+      const queue = evaluationQueues.get(chatId);
+      const currentLessonId = queue ? queue.idLeccion : null;
+
+      // Guardar el resultado en memoria para el resumen global
+      if (currentLessonId && activeLessons.has(currentLessonId)) {
+          const lessonState = activeLessons.get(currentLessonId);
+          if (!lessonState.results.has(chatId)) {
+              lessonState.results.set(chatId, { correctCount: 0, messages: [] });
+          }
+          const studentResult = lessonState.results.get(chatId);
+          if (isCorrect) studentResult.correctCount++;
+          
+          const qText = chatState.activeQuestion.question;
+          studentResult.messages.push(`*Pregunta:* ${qText}\n*Tu respuesta:* ${text} ${isCorrect ? '✅' : '❌'}\n*Correcta:* ${correct}`);
+      }
 
       // Registrar la respuesta en el Core API de .NET
       try {
@@ -413,6 +450,12 @@ if (TELEGRAM_BOT_TOKEN && TELEGRAM_BOT_TOKEN !== "tu_telegram_bot_token_aqui") {
         } else {
           const errData = await response.text();
           console.error("Error al registrar la respuesta en Core API:", errData);
+          if (response.status === 400 && errData.toLowerCase().includes("tiempo")) {
+            await bot.sendMessage(chatId, "⏱️ El tiempo límite de 5 minutos ha finalizado. La evaluación se ha cerrado y no se aceptó tu respuesta.");
+            activeChats.delete(chatId);
+            evaluationQueues.delete(chatId);
+            return;
+          }
         }
       } catch (error) {
         console.error("Error de conexión al registrar respuesta en Core API:", error.message);
@@ -420,26 +463,26 @@ if (TELEGRAM_BOT_TOKEN && TELEGRAM_BOT_TOKEN !== "tu_telegram_bot_token_aqui") {
 
       activeChats.delete(chatId);
 
-      const queue = evaluationQueues.get(chatId);
-      if (queue && queue.currentIndex + 1 < queue.preguntas.length) {
-        queue.currentIndex += 1;
-        const nextPregunta = queue.preguntas[queue.currentIndex];
+      const currentQueueForNext = evaluationQueues.get(chatId);
+      if (currentQueueForNext && currentQueueForNext.currentIndex + 1 < currentQueueForNext.preguntas.length) {
+        currentQueueForNext.currentIndex += 1;
+        const nextPregunta = currentQueueForNext.preguntas[currentQueueForNext.currentIndex];
         try {
           const result = await sendQuestionToStudent({
-            idLeccion: queue.idLeccion,
+            idLeccion: currentQueueForNext.idLeccion,
             idPregunta: nextPregunta.idPregunta,
-            idEstudiante: queue.idEstudiante,
+            idEstudiante: currentQueueForNext.idEstudiante,
             studentChatId: chatId,
-            topic: queue.topic,
+            topic: currentQueueForNext.topic,
             pregunta: nextPregunta,
             puntaje: nextPregunta.puntaje
           });
           if (result.telegramError) {
-            console.warn(`No se pudo enviar pregunta ${queue.currentIndex + 1} de la cola: ${result.telegramError}`);
+            console.warn(`No se pudo enviar pregunta ${currentQueueForNext.currentIndex + 1} de la cola: ${result.telegramError}`);
             evaluationQueues.delete(chatId);
           } else {
-            const total = queue.preguntas.length;
-            const num = queue.currentIndex + 1;
+            const total = currentQueueForNext.preguntas.length;
+            const num = currentQueueForNext.currentIndex + 1;
             await bot.sendMessage(chatId, `📋 Siguiente pregunta (${num} de ${total}).`);
           }
         } catch (err) {
@@ -448,6 +491,22 @@ if (TELEGRAM_BOT_TOKEN && TELEGRAM_BOT_TOKEN !== "tu_telegram_bot_token_aqui") {
         }
       } else {
         evaluationQueues.delete(chatId);
+        
+        // Registrar que este estudiante terminó
+        if (currentLessonId && activeLessons.has(currentLessonId)) {
+            const lessonState = activeLessons.get(currentLessonId);
+            lessonState.finishedCount++;
+            console.log(`Estudiante ${chatId} terminó. (${lessonState.finishedCount}/${lessonState.totalEstudiantes})`);
+            
+            // Si todos terminaron, cerrar y enviar
+            if (lessonState.finishedCount >= lessonState.totalEstudiantes) {
+                console.log(`Todos los estudiantes de la lección ${currentLessonId} han terminado.`);
+                clearTimeout(lessonState.timer);
+                await closeLessonAndSendFeedback(currentLessonId);
+            } else {
+                await bot.sendMessage(chatId, "Has respondido todas tus preguntas. Esperando a que el resto de tus compañeros termine para mostrarte los resultados...");
+            }
+        }
       }
     });
   } catch (error) {
@@ -611,6 +670,23 @@ app.post("/start-evaluation", async (req, res) => {
       });
     }
 
+    const idLeccionNum = Number(idLeccion);
+    const totalEstudiantes = Number(req.body.totalEstudiantes) || 1;
+
+    // Inicializar estado de lección si es la primera petición de esta lección
+    if (!activeLessons.has(idLeccionNum)) {
+      const timer = setTimeout(() => {
+        closeLessonAndSendFeedback(idLeccionNum);
+      }, 5 * 60 * 1000); // 5 minutos exactos
+
+      activeLessons.set(idLeccionNum, {
+        timer,
+        totalEstudiantes: totalEstudiantes,
+        finishedCount: 0,
+        results: new Map()
+      });
+    }
+
     const sortedPreguntas = [...preguntas].sort(
       (a, b) => (a.orden ?? 0) - (b.orden ?? 0)
     );
@@ -657,6 +733,35 @@ app.post("/start-evaluation", async (req, res) => {
       ok: false,
       error: error.message
     });
+  }
+});
+
+// Endpoint para enviar los resultados globales de una lección
+app.post("/send-lesson-results", async (req, res) => {
+  try {
+    const { resultados } = req.body;
+    if (!resultados || !Array.isArray(resultados)) {
+      return res.status(400).json({ ok: false, error: "Se requiere un arreglo 'resultados'." });
+    }
+
+    let enviados = 0;
+    for (const resEstudiante of resultados) {
+      if (resEstudiante.telegramChatId && resEstudiante.mensaje) {
+        try {
+          if (bot) {
+            await bot.sendMessage(resEstudiante.telegramChatId, resEstudiante.mensaje, { parse_mode: "Markdown" });
+            enviados++;
+          }
+        } catch (err) {
+          console.warn(`No se pudo enviar resultado a ${resEstudiante.telegramChatId}: ${err.message}`);
+        }
+      }
+    }
+
+    res.json({ ok: true, enviados });
+  } catch (error) {
+    console.error("ERROR /send-lesson-results:", error);
+    res.status(500).json({ ok: false, error: error.message });
   }
 });
 

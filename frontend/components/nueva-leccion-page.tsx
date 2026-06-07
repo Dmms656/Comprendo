@@ -257,6 +257,7 @@ export function NuevaLeccionPage({
             idEstudiante: e.id,
             topic: topic,
             studentChatId: e.telegramChatId!,
+            totalEstudiantes: estudiantesTelegram.length,
             preguntas: preguntasParaBot,
           }).catch((err) => {
             console.warn(`No se pudo enviar lección por Telegram a ${e.nombre}:`, err)

@@ -11,4 +11,6 @@ public interface IIntegracionRepository
     Task<RespuestaEstudiante> RegisterRespuestaAsync(RespuestaEstudiante entity, CancellationToken cancellationToken = default);
 
     Task<SolicitudIa> RegisterSolicitudIaAsync(SolicitudIa entity, CancellationToken cancellationToken = default);
+
+    Task<Leccion?> GetLeccionByIdEnvioAsync(int idEnvio, CancellationToken cancellationToken = default);
 }

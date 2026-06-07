@@ -40,4 +40,14 @@ public class IntegracionRepository(ComprendoDbContext dbContext) : IIntegracionR
         dbContext.SolicitudesIa.Add(entity);
         return Task.FromResult(entity);
     }
+
+    public Task<Leccion?> GetLeccionByIdEnvioAsync(
+        int idEnvio,
+        CancellationToken cancellationToken = default)
+    {
+        return dbContext.EnviosTelegram
+            .Where(e => e.IdEnvio == idEnvio)
+            .Select(e => e.Leccion)
+            .FirstOrDefaultAsync(cancellationToken);
+    }
 }

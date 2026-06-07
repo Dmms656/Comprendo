@@ -50,6 +50,16 @@ public class RegisterRespuestaCommandHandler : IRequestHandler<RegisterRespuesta
         RegisterRespuestaCommand request,
         CancellationToken cancellationToken)
     {
+        var leccion = await _repository.GetLeccionByIdEnvioAsync(request.IdEnvio, cancellationToken);
+        if (leccion != null)
+        {
+            var tiempoTranscurrido = _dateTime.UtcNow - leccion.FechaCreacion;
+            if (tiempoTranscurrido > TimeSpan.FromMinutes(5))
+            {
+                throw new ValidationException(new[] { new FluentValidation.Results.ValidationFailure("Tiempo", "El tiempo límite de 5 minutos ha finalizado.") });
+            }
+        }
+
         var entity = new RespuestaEstudiante
         {
             IdEnvio = request.IdEnvio,

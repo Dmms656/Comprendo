@@ -410,10 +410,11 @@ export function NuevaLeccionPage({
             creadas.push(dbPregunta)
           }
         }
-
-        // 2. Change the state to ENVIADA in .NET backend
-        await changeLeccionEstado(activeLessonId, "ENVIADA")
       }
+
+      // 2. Change the state to ENVIADA in .NET backend (always, for both new and draft lessons)
+      await changeLeccionEstado(activeLessonId, "ENVIADA")
+
 
       // 3. Fetch enrolled students to notify them
       let estudiantes: Estudiante[] = []

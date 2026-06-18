@@ -171,6 +171,7 @@ async function enrollWithCode(chatId, username, session, code) {
 
 async function handleStartCommand(chatId, username) {
   registrationSessions.delete(chatId);
+  clearStaleChatSessions(chatId);
 
   let status = { registrado: false };
   try {
@@ -203,6 +204,7 @@ async function handleStartCommand(chatId, username) {
 
 async function handleRegistrationContact(chatId, msg) {
   const phoneNumber = msg.contact.phone_number.replace(/\D/g, "");
+  clearStaleChatSessions(chatId);
   const session = registrationSessions.get(chatId) || { step: REG_STEP.PHONE };
 
   session.phone = phoneNumber;
@@ -378,8 +380,14 @@ async function sendQuestionToStudent({
   return { activeQ, envioDto, telegramError, questionMessage };
 }
 
+function clearStaleChatSessions(chatId) {
+  const key = String(chatId);
+  activeChats.delete(key);
+  evaluationQueues.delete(key);
+}
+
 function chatHasActiveSession(chatId) {
-  return activeChats.has(String(chatId)) || evaluationQueues.has(String(chatId));
+  return activeChats.has(String(chatId));
 }
 
 let bot = null;
@@ -402,8 +410,8 @@ function registerBotMessageHandlers() {
         return;
       }
 
-      // Evaluación activa tiene prioridad sobre el registro
-      if (!chatHasActiveSession(chatId) && registrationSessions.has(chatId) && msg.text && !msg.text.startsWith("/")) {
+      // Registro guiado: prioridad sobre evaluaciones residuales en memoria
+      if (registrationSessions.has(chatId) && msg.text && !msg.text.startsWith("/")) {
         const handled = await handleRegistrationText(chatId, msg.from.username || null, msg.text);
         if (handled) return;
       }
@@ -411,6 +419,13 @@ function registerBotMessageHandlers() {
       const chatState = activeChats.get(chatId);
       if (!chatState) {
         if (msg.text && msg.text.startsWith("/")) {
+          return;
+        }
+        if (registrationSessions.has(chatId)) {
+          await bot.sendMessage(
+            chatId,
+            "Sigamos con tu registro. Responde al paso que te indiqué arriba o escribe /start para comenzar de nuevo. 📚"
+          );
           return;
         }
         await bot.sendMessage(

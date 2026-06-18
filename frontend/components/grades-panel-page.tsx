@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
-import { Search, X, Edit2, ChevronDown, ChevronUp, Plus, Award, ArrowRight, Calendar, Sparkles } from "lucide-react"
+import { Search, X, Edit2, ChevronDown, ChevronUp, Plus, Award, ArrowRight, Calendar, Sparkles, Trash2 } from "lucide-react"
 import { AuthLayout } from "@/components/auth-layout"
 import {
   getAsignaciones,
@@ -16,6 +16,8 @@ import {
   getMaterias,
   createMateria,
   createAsignacion,
+  updateAsignacion,
+  deactivateAsignacion,
   ApiError,
 } from "@/lib/api"
 import type {
@@ -125,6 +127,7 @@ export function GradesPanelPage() {
 
   // Modal states for creating a new assignment
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
+  const [editingAsignacion, setEditingAsignacion] = useState<Asignacion | null>(null)
   const [catalogsLoading, setCatalogsLoading] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [toastError, setToastError] = useState<string | null>(null)
@@ -265,6 +268,7 @@ export function GradesPanelPage() {
   }, [materias])
 
   const openCreateModal = async () => {
+    setEditingAsignacion(null)
     setIsCreateModalOpen(true)
     setCatalogsLoading(true)
     try {
@@ -305,6 +309,49 @@ export function GradesPanelPage() {
       triggerToast(cleanErrorMessage(err))
     } finally {
       setCatalogsLoading(false)
+    }
+  }
+
+  const openEditModal = async (asignacion: Asignacion, e: React.MouseEvent) => {
+    e.stopPropagation()
+    setEditingAsignacion(asignacion)
+    setIsCreateModalOpen(true)
+    setCatalogsLoading(true)
+    try {
+      const [years, levels, sections, subjects, allCourses] = await Promise.all([
+        getAniosLectivos(),
+        getNiveles(),
+        getParalelos(),
+        getMaterias(),
+        getCursos(),
+      ])
+      setAniosLectivos(years)
+      setNiveles(levels)
+      setParalelos(sections)
+      setMaterias(subjects)
+      setCursos(allCourses)
+      if (asignacion.idAnioLectivo) setSelectedAnioId(String(asignacion.idAnioLectivo))
+      if (asignacion.idNivel) setSelectedNivelId(String(asignacion.idNivel))
+      if (asignacion.idParalelo) setSelectedParaleloId(String(asignacion.idParalelo))
+      if (asignacion.idMateria) setSelectedMateriaId(String(asignacion.idMateria))
+    } catch (err) {
+      triggerToast(cleanErrorMessage(err))
+    } finally {
+      setCatalogsLoading(false)
+    }
+  }
+
+  const handleDeleteAsignacion = async (asignacion: Asignacion, e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (!confirm(`¿Eliminar "${asignacion.materia}" (${asignacion.paralelo})? Podrás crear uno nuevo con las mismas características después.`)) {
+      return
+    }
+    try {
+      await deactivateAsignacion(asignacion.idDocenteCursoMateria)
+      setAsignaciones(await getAsignaciones())
+      setSelectedNivel(null)
+    } catch (err) {
+      triggerToast(cleanErrorMessage(err))
     }
   }
 
@@ -385,13 +432,18 @@ export function GradesPanelPage() {
         finalCursoId = newCourse.idCurso
       }
 
-      // 5. Create Asignacion
-      await createAsignacion(finalCursoId, finalMateriaId)
+      // 5. Create or update Asignacion
+      if (editingAsignacion) {
+        await updateAsignacion(editingAsignacion.idDocenteCursoMateria, finalCursoId, finalMateriaId)
+      } else {
+        await createAsignacion(finalCursoId, finalMateriaId)
+      }
 
       // 6. Refetch and Close
       const updatedAsignaciones = await getAsignaciones()
       setAsignaciones(updatedAsignaciones)
       setIsCreateModalOpen(false)
+      setEditingAsignacion(null)
 
       // Reset custom inputs
       setCustomNivelName("")
@@ -682,17 +734,19 @@ export function GradesPanelPage() {
                         <div className="h-px bg-gray-100 w-full mb-2" />
                         <div className="space-y-1.5">
                           {asgns.map((a) => (
-                            <button
+                            <div
                               key={a.idDocenteCursoMateria}
-                              onClick={() => {
-                                setSelectedNivel(null)
-                                router.push(
-                                  `/curso/${a.idDocenteCursoMateria}/${encodeURIComponent(a.materia)}`
-                                )
-                              }}
-                              className="w-full flex items-center justify-between hover:bg-[#5B9B95]/10 rounded-xl px-3 py-2.5 transition-colors cursor-pointer group"
+                              className="w-full flex items-center justify-between hover:bg-[#5B9B95]/10 rounded-xl px-3 py-2.5 transition-colors group"
                             >
-                              <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => {
+                                  setSelectedNivel(null)
+                                  router.push(
+                                    `/curso/${a.idDocenteCursoMateria}/${encodeURIComponent(a.materia)}`
+                                  )
+                                }}
+                                className="flex items-center gap-2 flex-1 text-left cursor-pointer"
+                              >
                                 <span
                                   className="w-2.5 h-2.5 rounded-full flex-shrink-0"
                                   style={{ backgroundColor: "#C66B86" }}
@@ -700,9 +754,27 @@ export function GradesPanelPage() {
                                 <span className="text-sm text-gray-700 font-bold group-hover:text-[#9E5A78]">
                                   {a.materia}
                                 </span>
+                              </button>
+                              <div className="flex items-center gap-1">
+                                <button
+                                  type="button"
+                                  onClick={(e) => openEditModal(a, e)}
+                                  className="p-1.5 rounded-lg text-[#7297C9] hover:bg-[#7297C9]/10 cursor-pointer"
+                                  title="Editar curso"
+                                >
+                                  <Edit2 size={14} />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={(e) => handleDeleteAsignacion(a, e)}
+                                  className="p-1.5 rounded-lg text-[#d4776a] hover:bg-[#d4776a]/10 cursor-pointer"
+                                  title="Eliminar curso"
+                                >
+                                  <Trash2 size={14} />
+                                </button>
+                                <ArrowRight size={14} className="text-gray-300 group-hover:text-[#5B9B95] ml-1" />
                               </div>
-                              <ArrowRight size={14} className="text-gray-300 group-hover:text-[#5B9B95] transform group-hover:translate-x-0.5 transition-all" />
-                            </button>
+                            </div>
                           ))}
                         </div>
                       </div>
@@ -739,7 +811,9 @@ export function GradesPanelPage() {
                 background: "linear-gradient(135deg, #9E5A78 0%, #C66B86 100%)",
               }}
             >
-              <h2 className="font-black text-2xl tracking-tight">Nuevo Grado o Curso</h2>
+              <h2 className="font-black text-2xl tracking-tight">
+                {editingAsignacion ? "Editar Curso" : "Nuevo Grado o Curso"}
+              </h2>
               <p className="text-white/80 text-xs font-semibold mt-1 tracking-wide uppercase">Asigna una materia a un grado académico</p>
               
               <button

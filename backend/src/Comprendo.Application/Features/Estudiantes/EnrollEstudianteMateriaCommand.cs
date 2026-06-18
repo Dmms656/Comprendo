@@ -45,9 +45,25 @@ public class EnrollEstudianteMateriaCommandHandler : IRequestHandler<EnrollEstud
             throw new NotFoundException(nameof(Estudiante), request.IdEstudiante);
         }
 
-        if (await _asignacionRepository.GetByIdAsync(request.IdDocenteCursoMateria, cancellationToken) is null)
+        var asignacion = await _asignacionRepository.GetByIdAsync(request.IdDocenteCursoMateria, cancellationToken)
+            ?? throw new NotFoundException(nameof(DocenteCursoMateria), request.IdDocenteCursoMateria);
+
+        if (await _repository.IsEnrolledInMateriaAsync(request.IdEstudiante, request.IdDocenteCursoMateria, cancellationToken))
         {
-            throw new NotFoundException(nameof(DocenteCursoMateria), request.IdDocenteCursoMateria);
+            var existing = await _repository.GetMateriaEnrollmentAsync(
+                request.IdEstudiante, request.IdDocenteCursoMateria, cancellationToken);
+            return existing!.IdEstudianteMateria;
+        }
+
+        var inactive = await _repository.GetMateriaEnrollmentAnyAsync(
+            request.IdEstudiante, request.IdDocenteCursoMateria, cancellationToken);
+        if (inactive is not null)
+        {
+            inactive.Estado = EstadoAsignacion.Activo;
+            inactive.FechaRegistro = _dateTime.UtcNow;
+            await _repository.UpdateMateriaEnrollmentAsync(inactive, cancellationToken);
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+            return inactive.IdEstudianteMateria;
         }
 
         var enrollment = new EstudianteMateria

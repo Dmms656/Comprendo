@@ -1,5 +1,6 @@
 using Comprendo.Application.Abstractions.Persistence;
 using Comprendo.Domain.Entities;
+using Comprendo.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
 
 namespace Comprendo.Infrastructure.Persistence.Repositories;
@@ -17,7 +18,7 @@ public class AsignacionRepository(ComprendoDbContext dbContext) : IAsignacionRep
             join n in dbContext.Niveles on c.IdNivel equals n.IdNivel
             join p in dbContext.Paralelos on c.IdParalelo equals p.IdParalelo
             join m in dbContext.Materias on dcm.IdMateria equals m.IdMateria
-            where dcm.IdDocente == idDocente
+            where dcm.IdDocente == idDocente && dcm.Estado == EstadoAsignacion.Activo
             orderby al.Nombre, n.Nombre, p.Nombre, m.Nombre
             select new DocenteAsignacionDetalle
             {
@@ -43,7 +44,9 @@ public class AsignacionRepository(ComprendoDbContext dbContext) : IAsignacionRep
     public Task<DocenteCursoMateria?> GetByCodigoAccesoAsync(string codigoAcceso, CancellationToken cancellationToken = default) =>
         dbContext.DocenteCursoMaterias
             .Include(x => x.Materia)
-            .FirstOrDefaultAsync(x => x.CodigoAcceso == codigoAcceso, cancellationToken);
+            .FirstOrDefaultAsync(
+                x => x.CodigoAcceso == codigoAcceso && x.Estado == EstadoAsignacion.Activo,
+                cancellationToken);
 
     public Task<bool> ExistsAsync(
         int idDocente,
@@ -51,6 +54,18 @@ public class AsignacionRepository(ComprendoDbContext dbContext) : IAsignacionRep
         int idMateria,
         CancellationToken cancellationToken = default) =>
         dbContext.DocenteCursoMaterias.AnyAsync(
+            x => x.IdDocente == idDocente &&
+                 x.IdCurso == idCurso &&
+                 x.IdMateria == idMateria &&
+                 x.Estado == EstadoAsignacion.Activo,
+            cancellationToken);
+
+    public Task<DocenteCursoMateria?> GetByDocenteCursoMateriaAsync(
+        int idDocente,
+        int idCurso,
+        int idMateria,
+        CancellationToken cancellationToken = default) =>
+        dbContext.DocenteCursoMaterias.FirstOrDefaultAsync(
             x => x.IdDocente == idDocente && x.IdCurso == idCurso && x.IdMateria == idMateria,
             cancellationToken);
 
@@ -60,5 +75,11 @@ public class AsignacionRepository(ComprendoDbContext dbContext) : IAsignacionRep
     {
         dbContext.DocenteCursoMaterias.Add(entity);
         return Task.FromResult(entity);
+    }
+
+    public Task UpdateAsync(DocenteCursoMateria entity, CancellationToken cancellationToken = default)
+    {
+        dbContext.DocenteCursoMaterias.Update(entity);
+        return Task.CompletedTask;
     }
 }

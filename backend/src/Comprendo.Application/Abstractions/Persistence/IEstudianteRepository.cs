@@ -30,4 +30,23 @@ public interface IEstudianteRepository
     Task<bool> IsEnrolledInCursoAsync(int idEstudiante, int idCurso, CancellationToken cancellationToken = default);
 
     Task<bool> IsEnrolledInMateriaAsync(int idEstudiante, int idDocenteCursoMateria, CancellationToken cancellationToken = default);
+
+    Task<EstudianteMateria?> GetMateriaEnrollmentAsync(
+        int idEstudiante,
+        int idDocenteCursoMateria,
+        CancellationToken cancellationToken = default);
+
+    Task<EstudianteMateria?> GetMateriaEnrollmentAnyAsync(
+        int idEstudiante,
+        int idDocenteCursoMateria,
+        CancellationToken cancellationToken = default);
+
+    Task<EstudianteCurso?> GetCursoEnrollmentAnyAsync(
+        int idEstudiante,
+        int idCurso,
+        CancellationToken cancellationToken = default);
+
+    Task UpdateMateriaEnrollmentAsync(EstudianteMateria entity, CancellationToken cancellationToken = default);
+
+    Task UpdateCursoEnrollmentAsync(EstudianteCurso entity, CancellationToken cancellationToken = default);
 }

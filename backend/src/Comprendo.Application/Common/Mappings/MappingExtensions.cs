@@ -91,6 +91,8 @@ public static class MappingExtensions
         entity.NumeroPreguntas,
         entity.FechaCreacion,
         entity.FechaProgramada,
+        entity.FechaDisponibleDesde,
+        entity.FechaDisponibleHasta,
         entity.Estado.ToString().ToUpperInvariant(),
         entity.CreadaConIa);
 

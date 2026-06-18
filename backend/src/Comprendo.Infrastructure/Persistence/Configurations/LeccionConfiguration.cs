@@ -20,6 +20,8 @@ public class LeccionConfiguration : IEntityTypeConfiguration<Leccion>
         builder.Property(x => x.NumeroPreguntas).HasColumnName("numero_preguntas");
         builder.Property(x => x.FechaCreacion).HasColumnName("fecha_creacion");
         builder.Property(x => x.FechaProgramada).HasColumnName("fecha_programada");
+        builder.Property(x => x.FechaDisponibleDesde).HasColumnName("fecha_disponible_desde");
+        builder.Property(x => x.FechaDisponibleHasta).HasColumnName("fecha_disponible_hasta");
         builder.Property(x => x.Estado).HasColumnName("estado").HasMaxLength(20).HasDbEnumConversion<EstadoLeccion>();
         builder.Property(x => x.CreadaConIa).HasColumnName("creada_con_ia");
 

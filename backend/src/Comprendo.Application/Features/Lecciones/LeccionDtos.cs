@@ -9,5 +9,7 @@ public record LeccionDto(
     int NumeroPreguntas,
     DateTimeOffset FechaCreacion,
     DateTimeOffset? FechaProgramada,
+    DateTimeOffset? FechaDisponibleDesde,
+    DateTimeOffset? FechaDisponibleHasta,
     string Estado,
     bool CreadaConIa);

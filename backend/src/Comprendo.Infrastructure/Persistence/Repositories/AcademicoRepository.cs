@@ -71,6 +71,17 @@ public class AcademicoRepository(ComprendoDbContext dbContext) : IAcademicoRepos
     public Task<Curso?> GetCursoByIdAsync(int id, CancellationToken cancellationToken = default) =>
         dbContext.Cursos.FirstOrDefaultAsync(x => x.IdCurso == id, cancellationToken);
 
+    public Task<Curso?> GetCursoByComboAsync(
+        int idAnioLectivo,
+        int idNivel,
+        int idParalelo,
+        CancellationToken cancellationToken = default) =>
+        dbContext.Cursos.FirstOrDefaultAsync(
+            x => x.IdAnioLectivo == idAnioLectivo &&
+                 x.IdNivel == idNivel &&
+                 x.IdParalelo == idParalelo,
+            cancellationToken);
+
     public Task<Curso> CreateCursoAsync(Curso entity, CancellationToken cancellationToken = default)
     {
         dbContext.Cursos.Add(entity);

@@ -84,7 +84,9 @@ public class EstudianteRepository(ComprendoDbContext dbContext) : IEstudianteRep
             .FirstOrDefaultAsync(x => x.TelegramChatId == telegramChatId, cancellationToken);
 
     public Task<bool> IsEnrolledInCursoAsync(int idEstudiante, int idCurso, CancellationToken cancellationToken = default) =>
-        dbContext.EstudianteCursos.AnyAsync(x => x.IdEstudiante == idEstudiante && x.IdCurso == idCurso, cancellationToken);
+        dbContext.EstudianteCursos.AnyAsync(
+            x => x.IdEstudiante == idEstudiante && x.IdCurso == idCurso && x.Estado == EstadoAsignacion.Activo,
+            cancellationToken);
 
     public Task<bool> IsEnrolledInMateriaAsync(int idEstudiante, int idDocenteCursoMateria, CancellationToken cancellationToken = default) =>
         dbContext.EstudianteMaterias.AnyAsync(
@@ -92,4 +94,43 @@ public class EstudianteRepository(ComprendoDbContext dbContext) : IEstudianteRep
                  x.IdDocenteCursoMateria == idDocenteCursoMateria &&
                  x.Estado == EstadoAsignacion.Activo,
             cancellationToken);
+
+    public Task<EstudianteMateria?> GetMateriaEnrollmentAsync(
+        int idEstudiante,
+        int idDocenteCursoMateria,
+        CancellationToken cancellationToken = default) =>
+        dbContext.EstudianteMaterias.FirstOrDefaultAsync(
+            x => x.IdEstudiante == idEstudiante &&
+                 x.IdDocenteCursoMateria == idDocenteCursoMateria &&
+                 x.Estado == EstadoAsignacion.Activo,
+            cancellationToken);
+
+    public Task<EstudianteMateria?> GetMateriaEnrollmentAnyAsync(
+        int idEstudiante,
+        int idDocenteCursoMateria,
+        CancellationToken cancellationToken = default) =>
+        dbContext.EstudianteMaterias.FirstOrDefaultAsync(
+            x => x.IdEstudiante == idEstudiante &&
+                 x.IdDocenteCursoMateria == idDocenteCursoMateria,
+            cancellationToken);
+
+    public Task<EstudianteCurso?> GetCursoEnrollmentAnyAsync(
+        int idEstudiante,
+        int idCurso,
+        CancellationToken cancellationToken = default) =>
+        dbContext.EstudianteCursos.FirstOrDefaultAsync(
+            x => x.IdEstudiante == idEstudiante && x.IdCurso == idCurso,
+            cancellationToken);
+
+    public Task UpdateMateriaEnrollmentAsync(EstudianteMateria entity, CancellationToken cancellationToken = default)
+    {
+        dbContext.EstudianteMaterias.Update(entity);
+        return Task.CompletedTask;
+    }
+
+    public Task UpdateCursoEnrollmentAsync(EstudianteCurso entity, CancellationToken cancellationToken = default)
+    {
+        dbContext.EstudianteCursos.Update(entity);
+        return Task.CompletedTask;
+    }
 }

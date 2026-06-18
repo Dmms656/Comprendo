@@ -16,6 +16,8 @@ public record CreateLeccionCommand(
     string? Descripcion,
     string? Tema,
     DateTimeOffset? FechaProgramada,
+    DateTimeOffset? FechaDisponibleDesde,
+    DateTimeOffset? FechaDisponibleHasta,
     bool CreadaConIa = false) : IRequest<LeccionDto>;
 
 public class CreateLeccionCommandValidator : AbstractValidator<CreateLeccionCommand>
@@ -24,6 +26,10 @@ public class CreateLeccionCommandValidator : AbstractValidator<CreateLeccionComm
     {
         RuleFor(x => x.IdDocenteCursoMateria).GreaterThan(0);
         RuleFor(x => x.Titulo).NotEmpty().MaximumLength(150);
+        RuleFor(x => x)
+            .Must(x => !x.FechaDisponibleDesde.HasValue || !x.FechaDisponibleHasta.HasValue ||
+                       x.FechaDisponibleHasta > x.FechaDisponibleDesde)
+            .WithMessage("La fecha de fin debe ser posterior a la fecha de inicio.");
     }
 }
 
@@ -68,6 +74,8 @@ public class CreateLeccionCommandHandler : IRequestHandler<CreateLeccionCommand,
             NumeroPreguntas = 0,
             FechaCreacion = _dateTime.UtcNow,
             FechaProgramada = request.FechaProgramada,
+            FechaDisponibleDesde = request.FechaDisponibleDesde,
+            FechaDisponibleHasta = request.FechaDisponibleHasta,
             Estado = EstadoLeccion.Borrador,
             CreadaConIa = request.CreadaConIa
         };

@@ -13,7 +13,9 @@ public record UpdateLeccionCommand(
     string Titulo,
     string? Descripcion,
     string? Tema,
-    DateTimeOffset? FechaProgramada) : IRequest<LeccionDto>;
+    DateTimeOffset? FechaProgramada,
+    DateTimeOffset? FechaDisponibleDesde,
+    DateTimeOffset? FechaDisponibleHasta) : IRequest<LeccionDto>;
 
 public class UpdateLeccionCommandValidator : AbstractValidator<UpdateLeccionCommand>
 {
@@ -21,6 +23,10 @@ public class UpdateLeccionCommandValidator : AbstractValidator<UpdateLeccionComm
     {
         RuleFor(x => x.Id).GreaterThan(0);
         RuleFor(x => x.Titulo).NotEmpty().MaximumLength(150);
+        RuleFor(x => x)
+            .Must(x => !x.FechaDisponibleDesde.HasValue || !x.FechaDisponibleHasta.HasValue ||
+                       x.FechaDisponibleHasta > x.FechaDisponibleDesde)
+            .WithMessage("La fecha de fin debe ser posterior a la fecha de inicio.");
     }
 }
 
@@ -56,6 +62,8 @@ public class UpdateLeccionCommandHandler : IRequestHandler<UpdateLeccionCommand,
         entity.Descripcion = request.Descripcion;
         entity.Tema = request.Tema;
         entity.FechaProgramada = request.FechaProgramada;
+        entity.FechaDisponibleDesde = request.FechaDisponibleDesde;
+        entity.FechaDisponibleHasta = request.FechaDisponibleHasta;
 
         await _repository.UpdateAsync(entity, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);

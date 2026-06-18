@@ -2,7 +2,6 @@ using Comprendo.Application.Abstractions.Persistence;
 using Comprendo.Application.Common.Extensions;
 using Comprendo.Application.Common.Interfaces;
 using Comprendo.Application.Common.Mappings;
-using Comprendo.Domain.Entities;
 using Comprendo.Domain.Enums;
 using Comprendo.Domain.Exceptions;
 using FluentValidation;
@@ -10,44 +9,47 @@ using MediatR;
 
 namespace Comprendo.Application.Features.Asignaciones;
 
-public record CreateAsignacionCommand(int IdCurso, int IdMateria) : IRequest<DocenteAsignacionDto>;
+public record UpdateAsignacionCommand(int Id, int IdCurso, int IdMateria) : IRequest<DocenteAsignacionDto>;
 
-public class CreateAsignacionCommandValidator : AbstractValidator<CreateAsignacionCommand>
+public class UpdateAsignacionCommandValidator : AbstractValidator<UpdateAsignacionCommand>
 {
-    public CreateAsignacionCommandValidator()
+    public UpdateAsignacionCommandValidator()
     {
+        RuleFor(x => x.Id).GreaterThan(0);
         RuleFor(x => x.IdCurso).GreaterThan(0);
         RuleFor(x => x.IdMateria).GreaterThan(0);
     }
 }
 
-public class CreateAsignacionCommandHandler : IRequestHandler<CreateAsignacionCommand, DocenteAsignacionDto>
+public class UpdateAsignacionCommandHandler : IRequestHandler<UpdateAsignacionCommand, DocenteAsignacionDto>
 {
     private readonly IAsignacionRepository _repository;
     private readonly IAcademicoRepository _academicoRepository;
     private readonly ICurrentUserService _currentUser;
-    private readonly IDateTimeProvider _dateTime;
     private readonly IUnitOfWork _unitOfWork;
 
-    public CreateAsignacionCommandHandler(
+    public UpdateAsignacionCommandHandler(
         IAsignacionRepository repository,
         IAcademicoRepository academicoRepository,
         ICurrentUserService currentUser,
-        IDateTimeProvider dateTime,
         IUnitOfWork unitOfWork)
     {
         _repository = repository;
         _academicoRepository = academicoRepository;
         _currentUser = currentUser;
-        _dateTime = dateTime;
         _unitOfWork = unitOfWork;
     }
 
-    public async Task<DocenteAsignacionDto> Handle(
-        CreateAsignacionCommand request,
-        CancellationToken cancellationToken)
+    public async Task<DocenteAsignacionDto> Handle(UpdateAsignacionCommand request, CancellationToken cancellationToken)
     {
         var docenteId = _currentUser.RequireDocenteId();
+        var asignacion = await _repository.GetByIdAsync(request.Id, cancellationToken)
+            ?? throw new NotFoundException(nameof(Domain.Entities.DocenteCursoMateria), request.Id);
+
+        if (asignacion.IdDocente != docenteId)
+        {
+            throw new ForbiddenException();
+        }
 
         if (await _academicoRepository.GetCursoByIdAsync(request.IdCurso, cancellationToken) is null)
         {
@@ -59,28 +61,21 @@ public class CreateAsignacionCommandHandler : IRequestHandler<CreateAsignacionCo
             throw new NotFoundException(nameof(Domain.Entities.Materia), request.IdMateria);
         }
 
-        if (await _repository.ExistsAsync(docenteId, request.IdCurso, request.IdMateria, cancellationToken))
+        if (asignacion.IdCurso != request.IdCurso || asignacion.IdMateria != request.IdMateria)
         {
-            throw new Application.Common.Exceptions.ApplicationException("Ya tienes un curso activo con esa combinación.");
+            if (await _repository.ExistsAsync(docenteId, request.IdCurso, request.IdMateria, cancellationToken))
+            {
+                throw new Application.Common.Exceptions.ApplicationException("Ya tienes un curso activo con esa combinación.");
+            }
         }
 
-        var entity = new DocenteCursoMateria
-        {
-            IdDocente = docenteId,
-            IdCurso = request.IdCurso,
-            IdMateria = request.IdMateria,
-            Estado = EstadoAsignacion.Activo,
-            FechaAsignacion = _dateTime.UtcNow,
-            CodigoAcceso = await CodigoAccesoGenerator.GenerateUniqueAsync(_repository, cancellationToken)
-        };
-
-        await _repository.CreateAsync(entity, cancellationToken);
+        asignacion.IdCurso = request.IdCurso;
+        asignacion.IdMateria = request.IdMateria;
+        await _repository.UpdateAsync(asignacion, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         var list = await _repository.ListByDocenteAsync(docenteId, cancellationToken);
-        var created = list.First(x =>
-            x.IdCurso == request.IdCurso && x.IdMateria == request.IdMateria);
-
-        return created.ToDto();
+        var updated = list.First(x => x.IdDocenteCursoMateria == request.Id);
+        return updated.ToDto();
     }
 }

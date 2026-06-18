@@ -39,7 +39,7 @@ const activeChats = new Map();
 const evaluationQueues = new Map();
 
 // Estado de las lecciones (agrupa respuestas hasta que todos los estudiantes terminen)
-// Key: idLeccion (number), Value: { totalEstudiantes, finishedCount, results: Map<chatId, { correctCount, messages }> }
+// Key: idLeccion (number), Value: { timer?, totalEstudiantes, finishedCount, results, tiempoLimiteMinutos? }
 const activeLessons = new Map();
 
 async function closeLessonAndSendFeedback(lessonId) {
@@ -64,8 +64,185 @@ async function closeLessonAndSendFeedback(lessonId) {
     }
 }
 
-// Rastreo de registros pendientes por código de acceso de Telegram
-const pendingRegistrations = new Map();
+// Sesiones de registro / inscripción guiada por chat
+const registrationSessions = new Map();
+
+const REG_STEP = {
+  PHONE: "phone",
+  NOMBRES: "nombres",
+  APELLIDOS: "apellidos",
+  CODIGO: "codigo",
+  CODIGO_EXISTING: "codigo_existing",
+};
+
+function normalizeCourseCode(text) {
+  return (text || "").trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
+}
+
+function isValidCourseCode(code) {
+  return /^[A-Z0-9]{4,10}$/.test(code);
+}
+
+async function fetchStudentTelegramStatus(chatId) {
+  const response = await fetch(
+    `${CORE_API_URL()}/api/integracion/estudiante-telegram/${encodeURIComponent(chatId)}`,
+    { headers: INTEGRATION_HEADERS() }
+  );
+  if (!response.ok) {
+    return { registrado: false };
+  }
+  return response.json();
+}
+
+async function vincularEstudianteCodigo(payload) {
+  const response = await fetch(`${CORE_API_URL()}/api/integracion/vincular-estudiante-codigo`, {
+    method: "POST",
+    headers: INTEGRATION_HEADERS(),
+    body: JSON.stringify(payload),
+  });
+
+  if (response.ok) {
+    return { ok: true, result: await response.json() };
+  }
+
+  let errMsg = "Error al completar el registro.";
+  try {
+    const errData = await response.json();
+    if (errData.title || errData.mensaje) errMsg = errData.title || errData.mensaje;
+  } catch {
+    const errText = await response.text();
+    if (errText) errMsg = errText;
+  }
+  return { ok: false, errMsg };
+}
+
+async function enrollWithCode(chatId, username, session, code) {
+  const payload = {
+    telegramChatId: chatId,
+    telegramUsername: username,
+    nombres: session?.nombres || "",
+    apellidos: session?.apellidos || "",
+    codigoAcceso: code,
+    telefonoTelegram: session?.phone || null,
+  };
+
+  const { ok, result, errMsg } = await vincularEstudianteCodigo(payload);
+  registrationSessions.delete(chatId);
+
+  if (ok && result.exito) {
+    await bot.sendMessage(
+      chatId,
+      `¡Listo! Te inscribiste en *${result.materiaNombre}* 📚\n\nYa puedes recibir evaluaciones de tu profesor.`,
+      { parse_mode: "Markdown", reply_markup: { remove_keyboard: true } }
+    );
+    return true;
+  }
+
+  await bot.sendMessage(chatId, `No se pudo completar la inscripción: ${result?.mensaje || errMsg}`);
+  return false;
+}
+
+async function handleStartCommand(chatId, username) {
+  registrationSessions.delete(chatId);
+
+  let status = { registrado: false };
+  try {
+    status = await fetchStudentTelegramStatus(chatId);
+  } catch (error) {
+    console.warn("No se pudo consultar estado del estudiante:", error.message);
+  }
+
+  if (status.registrado) {
+    registrationSessions.set(chatId, { step: REG_STEP.CODIGO_EXISTING });
+    const nombre = status.nombres || "estudiante";
+    await bot.sendMessage(
+      chatId,
+      `¡Hola, *${nombre}*! 👋\n\nYa tienes cuenta en Comprendo.\n\nPara inscribirte en un curso, escribe el *código* que te compartió tu profesor.`,
+      { parse_mode: "Markdown", reply_markup: { remove_keyboard: true } }
+    );
+    return;
+  }
+
+  registrationSessions.set(chatId, { step: REG_STEP.PHONE });
+  await bot.sendMessage(
+    chatId,
+    "¡Hola! Bienvenido a *Comprendo* 📚\n\nPara inscribirte en un curso necesitamos registrarte.\n\n*Paso 1 de 4:* Comparte tu número de teléfono con el botón de abajo.\n\n(Tu nombre y apellido los escribirás en los siguientes pasos, no usamos los de la cuenta de Telegram.)",
+    {
+      parse_mode: "Markdown",
+      reply_markup: {
+        keyboard: [[{ text: "📱 Compartir mi número", request_contact: true }]],
+        resize_keyboard: true,
+        one_time_keyboard: true,
+      },
+    }
+  );
+}
+
+async function handleRegistrationContact(chatId, msg) {
+  const phoneNumber = msg.contact.phone_number.replace(/\D/g, "");
+  const session = registrationSessions.get(chatId) || { step: REG_STEP.PHONE };
+
+  session.phone = phoneNumber;
+  session.step = REG_STEP.NOMBRES;
+  registrationSessions.set(chatId, session);
+
+  await bot.sendMessage(
+    chatId,
+    "✅ Número recibido.\n\n*Paso 2 de 4:* Escribe tu *nombre* tal como figura en tus documentos.",
+    { parse_mode: "Markdown", reply_markup: { remove_keyboard: true } }
+  );
+}
+
+async function handleRegistrationText(chatId, username, text) {
+  const session = registrationSessions.get(chatId);
+  if (!session) return false;
+
+  const trimmed = (text || "").trim();
+  if (!trimmed) {
+    await bot.sendMessage(chatId, "Por favor escribe una respuesta válida.");
+    return true;
+  }
+
+  if (session.step === REG_STEP.NOMBRES) {
+    if (trimmed.length < 2) {
+      await bot.sendMessage(chatId, "El nombre debe tener al menos 2 caracteres. Inténtalo de nuevo.");
+      return true;
+    }
+    session.nombres = trimmed;
+    session.step = REG_STEP.APELLIDOS;
+    registrationSessions.set(chatId, session);
+    await bot.sendMessage(chatId, "*Paso 3 de 4:* Ahora escribe tu *apellido*.", { parse_mode: "Markdown" });
+    return true;
+  }
+
+  if (session.step === REG_STEP.APELLIDOS) {
+    if (trimmed.length < 2) {
+      await bot.sendMessage(chatId, "El apellido debe tener al menos 2 caracteres. Inténtalo de nuevo.");
+      return true;
+    }
+    session.apellidos = trimmed;
+    session.step = REG_STEP.CODIGO;
+    registrationSessions.set(chatId, session);
+    await bot.sendMessage(
+      chatId,
+      `Gracias, *${session.nombres} ${session.apellidos}*.\n\n*Paso 4 de 4:* Escribe el *código del curso* que te dio tu profesor.`,
+      { parse_mode: "Markdown" }
+    );
+    return true;
+  }
+
+  if (session.step === REG_STEP.CODIGO || session.step === REG_STEP.CODIGO_EXISTING) {
+    const code = normalizeCourseCode(trimmed);
+    if (!isValidCourseCode(code)) {
+      await bot.sendMessage(chatId, "⚠️ Código no válido. Verifica el código de tu profesor e inténtalo de nuevo.");
+      return true;
+    }
+    await enrollWithCode(chatId, username, session, code);
+    return true;
+  }
+
+  return false;
+}
 
 const CORE_API_URL = () => process.env.CORE_API_URL || "http://localhost:5253";
 const INTEGRATION_HEADERS = () => ({
@@ -185,177 +362,33 @@ function registerBotMessageHandlers() {
   bot.on("message", async (msg) => {
       const chatId = String(msg.chat.id);
       
-      // Manejar comando /start con código opcional
+      // Comando /start (enlace sin código embebido)
       if (msg.text && msg.text.startsWith("/start")) {
-        const parts = msg.text.split(/\s+/);
-        const code = parts.length > 1 ? parts[1].trim().toUpperCase() : null;
-
-        if (code) {
-          try {
-            const coreUrl = process.env.CORE_API_URL || "http://localhost:5253";
-            console.log(`Verificando código ${code} para chat ${chatId}`);
-            
-            const response = await fetch(`${coreUrl}/api/integracion/vincular-estudiante-codigo`, {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                "X-Integration-Api-Key": process.env.INTEGRATION_API_KEY || "dev-integration-api-key"
-              },
-              body: JSON.stringify({
-                telegramChatId: chatId,
-                telegramUsername: msg.from.username || null,
-                nombres: msg.from.first_name || "",
-                apellidos: msg.from.last_name || "",
-                codigoAcceso: code
-              })
-            });
-
-            if (response.ok) {
-              const result = await response.json();
-              if (result.requiereTelefono) {
-                pendingRegistrations.set(chatId, code);
-                await bot.sendMessage(chatId, `¡Hola! Para inscribirte en la materia con código *${code}*, necesitamos vincular tu cuenta con tu número de teléfono.\n\nPor favor, presiona el botón de abajo para compartir tu contacto.`, {
-                  parse_mode: "Markdown",
-                  reply_markup: {
-                    keyboard: [
-                      [{ text: "📱 Compartir mi número para registrarme", request_contact: true }]
-                    ],
-                    resize_keyboard: true,
-                    one_time_keyboard: true
-                  }
-                });
-              } else if (result.exito) {
-                await bot.sendMessage(chatId, `¡Bienvenido! Has sido registrado e inscrito correctamente en la materia: *${result.materiaNombre}* 📚`, {
-                  parse_mode: "Markdown",
-                  reply_markup: { remove_keyboard: true }
-                });
-              } else {
-                await bot.sendMessage(chatId, `No se pudo procesar la inscripción: ${result.mensaje}`);
-              }
-            } else {
-              let errMsg = "Código inválido o error en el sistema.";
-              try {
-                const errData = await response.json();
-                if (errData.title || errData.mensaje) errMsg = errData.title || errData.mensaje;
-              } catch (e) {
-                const errText = await response.text();
-                if (errText) errMsg = errText;
-              }
-              await bot.sendMessage(chatId, `No se pudo registrar en la materia: ${errMsg}`);
-            }
-          } catch (error) {
-            console.error("Error al registrar estudiante con código:", error);
-            await bot.sendMessage(chatId, "Ocurrió un error al procesar tu código. Intenta más tarde.");
-          }
-        } else {
-          await bot.sendMessage(chatId, "¡Hola! Bienvenido a Comprendo. 📚\n\nPara poder recibir evaluaciones de tus profesores, necesitamos vincular tu cuenta de Telegram con tu perfil de estudiante.\n\nPor favor, presiona el botón de abajo para compartir tu número de teléfono.", {
-            reply_markup: {
-              keyboard: [
-                [{ text: "📱 Compartir mi número para registrarme", request_contact: true }]
-              ],
-              resize_keyboard: true,
-              one_time_keyboard: true
-            }
-          });
-        }
+        await handleStartCommand(chatId, msg.from.username || null);
         return;
       }
 
-      // Manejar envío de contacto
+      // Compartir contacto durante el registro
       if (msg.contact) {
-        const phoneNumber = msg.contact.phone_number.replace(/\D/g, ""); // Remove '+' or spaces
-        const username = msg.from.username || null;
-        const pendingCode = pendingRegistrations.get(chatId);
-        
-        try {
-          const coreUrl = process.env.CORE_API_URL || "http://localhost:5253";
-          
-          if (pendingCode) {
-            console.log(`Registrando/vinculando estudiante con código ${pendingCode} en Core API`);
-            const response = await fetch(`${coreUrl}/api/integracion/vincular-estudiante-codigo`, {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                "X-Integration-Api-Key": process.env.INTEGRATION_API_KEY || "dev-integration-api-key"
-              },
-              body: JSON.stringify({
-                telegramChatId: chatId,
-                telegramUsername: username,
-                nombres: msg.from.first_name || "",
-                apellidos: msg.from.last_name || "",
-                codigoAcceso: pendingCode,
-                telefonoTelegram: phoneNumber
-              })
-            });
-
-            if (response.ok) {
-              const result = await response.json();
-              if (result.exito) {
-                pendingRegistrations.delete(chatId);
-                await bot.sendMessage(chatId, `¡Registro exitoso! Has sido inscrito en la materia: *${result.materiaNombre}* 📚`, {
-                  parse_mode: "Markdown",
-                  reply_markup: { remove_keyboard: true }
-                });
-              } else {
-                await bot.sendMessage(chatId, `No se pudo completar el registro: ${result.mensaje}`);
-              }
-            } else {
-              let errMsg = "Error al completar el registro.";
-              try {
-                const errData = await response.json();
-                if (errData.title || errData.mensaje) errMsg = errData.title || errData.mensaje;
-              } catch (e) {
-                const errText = await response.text();
-                if (errText) errMsg = errText;
-              }
-              await bot.sendMessage(chatId, `Error al completar el registro: ${errMsg}`);
-            }
-          } else {
-            console.log(`Vinculando estudiante en Core API: ${coreUrl}/api/integracion/vincular-estudiante`);
-            
-            const response = await fetch(`${coreUrl}/api/integracion/vincular-estudiante`, {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                "X-Integration-Api-Key": process.env.INTEGRATION_API_KEY || "dev-integration-api-key"
-              },
-              body: JSON.stringify({
-                telefonoTelegram: phoneNumber,
-                telegramChatId: chatId,
-                telegramUsername: username
-              })
-            });
-
-            if (response.ok) {
-              await bot.sendMessage(chatId, "¡Excelente! Tu cuenta ha sido vinculada correctamente. Ya puedes recibir evaluaciones.", {
-                reply_markup: { remove_keyboard: true }
-              });
-            } else {
-              let errMessage = "Asegúrate de que tu profesor te haya registrado primero con este número de teléfono.";
-              try {
-                const errData = await response.json();
-                if (errData.title || errData.error) errMessage = errData.title || errData.error;
-              } catch (e) {
-                const errText = await response.text();
-                if (errText) errMessage = errText;
-              }
-              await bot.sendMessage(chatId, `No se pudo vincular tu cuenta: ${errMessage}`);
-            }
-          }
-        } catch (error) {
-          console.error("Error al vincular estudiante:", error);
-          await bot.sendMessage(chatId, "Ocurrió un error al intentar vincular tu cuenta. Intenta más tarde.");
-        }
+        await handleRegistrationContact(chatId, msg);
         return;
+      }
+
+      // Evaluación activa tiene prioridad sobre el registro
+      if (!chatHasActiveSession(chatId) && registrationSessions.has(chatId) && msg.text && !msg.text.startsWith("/")) {
+        const handled = await handleRegistrationText(chatId, msg.from.username || null, msg.text);
+        if (handled) return;
       }
 
       const chatState = activeChats.get(chatId);
       if (!chatState) {
-        // Evitar responder si es un comando que no conocemos pero empieza con /
         if (msg.text && msg.text.startsWith("/")) {
           return;
         }
-        await bot.sendMessage(chatId, "No tienes ninguna pregunta activa en este momento. 📚");
+        await bot.sendMessage(
+          chatId,
+          "No tienes ninguna evaluación activa. Escribe /start para registrarte o inscribirte en un curso. 📚"
+        );
         return;
       }
 
@@ -437,6 +470,12 @@ function registerBotMessageHandlers() {
         } else {
           const errData = await response.text();
           console.error("Error al registrar la respuesta en Core API:", errData);
+          if (response.status === 400 && errData.toLowerCase().includes("tiempo")) {
+            await bot.sendMessage(chatId, "⏱️ El tiempo límite de la evaluación ha finalizado. No se aceptó tu respuesta.");
+            activeChats.delete(chatId);
+            evaluationQueues.delete(chatId);
+            return;
+          }
         }
       } catch (error) {
         console.error("Error de conexión al registrar respuesta en Core API:", error.message);
@@ -482,6 +521,7 @@ function registerBotMessageHandlers() {
             // Si todos terminaron, cerrar y enviar
             if (lessonState.finishedCount >= lessonState.totalEstudiantes) {
                 console.log(`Todos los estudiantes de la lección ${currentLessonId} han terminado.`);
+                if (lessonState.timer) clearTimeout(lessonState.timer);
                 await closeLessonAndSendFeedback(currentLessonId);
             } else {
                 await bot.sendMessage(chatId, "Has respondido todas tus preguntas. Esperando a que el resto de tus compañeros termine para mostrarte los resultados...");
@@ -708,14 +748,34 @@ app.post("/start-evaluation", async (req, res) => {
 
     const idLeccionNum = Number(idLeccion);
     const totalEstudiantes = Number(req.body.totalEstudiantes) || 1;
+    const tiempoLimiteMinutos = Number(req.body.tiempoLimiteMinutos) || 0;
+    const fechaDisponibleHasta = req.body.fechaDisponibleHasta
+      ? new Date(req.body.fechaDisponibleHasta)
+      : null;
 
     // Inicializar estado de lección si es la primera petición de esta lección
     if (!activeLessons.has(idLeccionNum)) {
-      activeLessons.set(idLeccionNum, {
+      const lessonState = {
         totalEstudiantes: totalEstudiantes,
         finishedCount: 0,
-        results: new Map()
-      });
+        results: new Map(),
+        timer: null
+      };
+
+      let closeAtMs = null;
+      if (fechaDisponibleHasta && !Number.isNaN(fechaDisponibleHasta.getTime())) {
+        closeAtMs = fechaDisponibleHasta.getTime() - Date.now();
+      } else if (tiempoLimiteMinutos > 0) {
+        closeAtMs = tiempoLimiteMinutos * 60 * 1000;
+      }
+
+      if (closeAtMs && closeAtMs > 0) {
+        lessonState.timer = setTimeout(() => {
+          closeLessonAndSendFeedback(idLeccionNum);
+        }, closeAtMs);
+      }
+
+      activeLessons.set(idLeccionNum, lessonState);
     }
 
     const sortedPreguntas = [...preguntas].sort(

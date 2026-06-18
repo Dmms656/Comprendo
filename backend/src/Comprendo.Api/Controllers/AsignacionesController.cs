@@ -29,4 +29,21 @@ public class AsignacionesController(ISender sender) : ControllerBase
         int id,
         CancellationToken cancellationToken) =>
         Ok(await sender.Send(new GenerarCodigoAsignacionCommand(id), cancellationToken));
+
+    /// <summary>Actualiza curso y materia de una asignación activa.</summary>
+    [HttpPut("{id:int}")]
+    public async Task<ActionResult<DocenteAsignacionDto>> Update(
+        int id,
+        [FromBody] UpdateAsignacionBody body,
+        CancellationToken cancellationToken) =>
+        Ok(await sender.Send(new UpdateAsignacionCommand(id, body.IdCurso, body.IdMateria), cancellationToken));
+
+    /// <summary>Desactiva una asignación (eliminación lógica).</summary>
+    [HttpDelete("{id:int}")]
+    public async Task<ActionResult<DeactivateAsignacionResult>> Deactivate(
+        int id,
+        CancellationToken cancellationToken) =>
+        Ok(await sender.Send(new DeactivateAsignacionCommand(id), cancellationToken));
 }
+
+public record UpdateAsignacionBody(int IdCurso, int IdMateria);

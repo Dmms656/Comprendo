@@ -28,6 +28,14 @@ public class VincularEstudianteCodigoCommandValidator : AbstractValidator<Vincul
     {
         RuleFor(x => x.TelegramChatId).NotEmpty();
         RuleFor(x => x.CodigoAcceso).NotEmpty();
+        RuleFor(x => x.Nombres)
+            .NotEmpty()
+            .MinimumLength(2)
+            .When(x => !string.IsNullOrWhiteSpace(x.TelefonoTelegram));
+        RuleFor(x => x.Apellidos)
+            .NotEmpty()
+            .MinimumLength(2)
+            .When(x => !string.IsNullOrWhiteSpace(x.TelefonoTelegram));
     }
 }
 
@@ -93,8 +101,17 @@ public class VincularEstudianteCodigoCommandHandler : IRequestHandler<VincularEs
         }
 
         // 5. Si no existe, crear un nuevo estudiante y usuario
-        var names = string.IsNullOrWhiteSpace(request.Nombres) ? "Estudiante" : request.Nombres.Trim();
-        var lastNames = string.IsNullOrWhiteSpace(request.Apellidos) ? "Telegram" : request.Apellidos.Trim();
+        if (string.IsNullOrWhiteSpace(request.Nombres) || string.IsNullOrWhiteSpace(request.Apellidos))
+        {
+            return new VincularEstudianteCodigoResult(
+                false,
+                false,
+                "Se requieren nombre y apellido para el registro.",
+                null);
+        }
+
+        var names = request.Nombres.Trim();
+        var lastNames = request.Apellidos.Trim();
         var generatedEmail = $"tg_{request.TelegramChatId}@estudiante.local";
 
         var nuevoEstudiante = new Estudiante
@@ -124,32 +141,42 @@ public class VincularEstudianteCodigoCommandHandler : IRequestHandler<VincularEs
 
     private async Task MatricularEstudianteAsync(int estudianteId, DocenteCursoMateria asignacion, CancellationToken cancellationToken)
     {
-        // Verificar matrícula en el Curso
-        var isEnrolledCurso = await _estudianteRepository.IsEnrolledInCursoAsync(estudianteId, asignacion.IdCurso, cancellationToken);
-        if (!isEnrolledCurso)
+        var cursoEnrollment = await _estudianteRepository.GetCursoEnrollmentAnyAsync(
+            estudianteId, asignacion.IdCurso, cancellationToken);
+        if (cursoEnrollment is null)
         {
-            var enrollmentCurso = new EstudianteCurso
+            await _estudianteRepository.EnrollCursoAsync(new EstudianteCurso
             {
                 IdEstudiante = estudianteId,
                 IdCurso = asignacion.IdCurso,
                 Estado = EstadoAsignacion.Activo,
                 FechaMatricula = _dateTime.UtcNow
-            };
-            await _estudianteRepository.EnrollCursoAsync(enrollmentCurso, cancellationToken);
+            }, cancellationToken);
+        }
+        else if (cursoEnrollment.Estado != EstadoAsignacion.Activo)
+        {
+            cursoEnrollment.Estado = EstadoAsignacion.Activo;
+            cursoEnrollment.FechaMatricula = _dateTime.UtcNow;
+            await _estudianteRepository.UpdateCursoEnrollmentAsync(cursoEnrollment, cancellationToken);
         }
 
-        // Verificar matrícula en la Materia (DocenteCursoMateria)
-        var isEnrolledMateria = await _estudianteRepository.IsEnrolledInMateriaAsync(estudianteId, asignacion.IdDocenteCursoMateria, cancellationToken);
-        if (!isEnrolledMateria)
+        var materiaEnrollment = await _estudianteRepository.GetMateriaEnrollmentAnyAsync(
+            estudianteId, asignacion.IdDocenteCursoMateria, cancellationToken);
+        if (materiaEnrollment is null)
         {
-            var enrollmentMateria = new EstudianteMateria
+            await _estudianteRepository.EnrollMateriaAsync(new EstudianteMateria
             {
                 IdEstudiante = estudianteId,
                 IdDocenteCursoMateria = asignacion.IdDocenteCursoMateria,
                 Estado = EstadoAsignacion.Activo,
                 FechaRegistro = _dateTime.UtcNow
-            };
-            await _estudianteRepository.EnrollMateriaAsync(enrollmentMateria, cancellationToken);
+            }, cancellationToken);
+        }
+        else if (materiaEnrollment.Estado != EstadoAsignacion.Activo)
+        {
+            materiaEnrollment.Estado = EstadoAsignacion.Activo;
+            materiaEnrollment.FechaRegistro = _dateTime.UtcNow;
+            await _estudianteRepository.UpdateMateriaEnrollmentAsync(materiaEnrollment, cancellationToken);
         }
 
         await _unitOfWork.SaveChangesAsync(cancellationToken);

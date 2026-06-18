@@ -8,7 +8,8 @@ import {
 import { Search, X, Check, ChevronLeft, ChevronRight, Eye, AlignJustify } from "lucide-react"
 import { AuthLayout } from "@/components/auth-layout"
 import { CourseSidebar } from "@/components/course-sidebar"
-import { getResultados, getPreguntas, getLecciones, getLeccion } from "@/lib/api"
+import { getResultados, getPreguntas, getLecciones, getLeccion, updateLeccion } from "@/lib/api"
+import { formatFechaDisponibilidad, fromDatetimeLocal, toDatetimeLocal } from "@/lib/datetime"
 import type { Resultado, Pregunta, Opcion, Leccion } from "@/lib/types"
 import { NuevaLeccionPage } from "@/components/nueva-leccion-page"
 import { useRouter } from "next/navigation"
@@ -1180,6 +1181,10 @@ export function LeccionDetallePage({
   const [sequentialNum, setSequentialNum] = useState<number | null>(null)
   const [leccion, setLeccion] = useState<Leccion | null>(null)
   const [loadingLeccion, setLoadingLeccion] = useState(true)
+  const [editTitle, setEditTitle] = useState("")
+  const [editFechaDesde, setEditFechaDesde] = useState("")
+  const [editFechaHasta, setEditFechaHasta] = useState("")
+  const [savingMeta, setSavingMeta] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -1208,6 +1213,9 @@ export function LeccionDetallePage({
         const data = await getLeccion(lessonNumber)
         if (!cancelled) {
           setLeccion(data)
+          setEditTitle(data.titulo || data.tema || "")
+          setEditFechaDesde(toDatetimeLocal(data.fechaDisponibleDesde))
+          setEditFechaHasta(toDatetimeLocal(data.fechaDisponibleHasta))
         }
       } catch (err) {
         console.error("Error loading lesson detail:", err)
@@ -1254,6 +1262,25 @@ export function LeccionDetallePage({
   }
 
   const displayNum = sequentialNum !== null ? sequentialNum : lessonNumber
+  const displayTitle = leccion?.titulo || leccion?.tema || `Lección #${displayNum}`
+
+  const handleSaveLessonMeta = async () => {
+    if (!leccion) return
+    setSavingMeta(true)
+    try {
+      const updated = await updateLeccion(leccion.id, {
+        titulo: editTitle.trim() || displayTitle,
+        tema: leccion.tema,
+        fechaDisponibleDesde: fromDatetimeLocal(editFechaDesde),
+        fechaDisponibleHasta: fromDatetimeLocal(editFechaHasta),
+      })
+      setLeccion(updated)
+    } catch (err) {
+      console.error("Error al actualizar lección:", err)
+    } finally {
+      setSavingMeta(false)
+    }
+  }
 
   const tabs: { key: TabKey; label: string }[] = [
     { key: "participaciones", label: "Participaciones" },
@@ -1307,16 +1334,66 @@ export function LeccionDetallePage({
               <BreadcrumbSeparator className="text-[#7297C9] [&>svg]:size-3" />
               <BreadcrumbItem>
                 <BreadcrumbPage className="text-[#C66B86] font-bold text-xs uppercase tracking-wide">
-                  Lección #{displayNum}
+                  {displayTitle}
                 </BreadcrumbPage>
               </BreadcrumbItem>
             </BreadcrumbList>
           </Breadcrumb>
 
           {/* Heading */}
-          <h1 className="text-4xl font-bold italic text-[#9E5A78] mb-4">
-            Lección #{displayNum}
-          </h1>
+          <div className="mb-4 space-y-3">
+            <h1 className="text-4xl font-bold italic text-[#9E5A78]">
+              {displayTitle}
+            </h1>
+            {leccion?.estado !== "ENVIADA" && leccion?.estado !== "CERRADA" && (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 bg-white/70 border border-[#F1D87C]/40 rounded-2xl p-4">
+                <div className="md:col-span-3">
+                  <label className="block text-xs font-bold text-[#9E5A78] uppercase mb-1">Nombre</label>
+                  <input
+                    value={editTitle}
+                    onChange={(e) => setEditTitle(e.target.value)}
+                    className="w-full rounded-xl border border-[#F1D87C]/50 px-3 py-2 text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-[#9E5A78] uppercase mb-1">Disponible desde</label>
+                  <input
+                    type="datetime-local"
+                    value={editFechaDesde}
+                    onChange={(e) => setEditFechaDesde(e.target.value)}
+                    className="w-full rounded-xl border border-[#F1D87C]/50 px-3 py-2 text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-[#9E5A78] uppercase mb-1">Disponible hasta</label>
+                  <input
+                    type="datetime-local"
+                    value={editFechaHasta}
+                    onChange={(e) => setEditFechaHasta(e.target.value)}
+                    className="w-full rounded-xl border border-[#F1D87C]/50 px-3 py-2 text-sm"
+                  />
+                </div>
+                <div className="md:col-span-3 flex justify-end">
+                  <button
+                    onClick={handleSaveLessonMeta}
+                    disabled={savingMeta}
+                    className="bg-[#5B9B95] text-white text-sm font-bold px-4 py-2 rounded-xl disabled:opacity-50"
+                  >
+                    {savingMeta ? "Guardando..." : "Guardar cambios"}
+                  </button>
+                </div>
+              </div>
+            )}
+            {leccion?.fechaDisponibleDesde || leccion?.fechaDisponibleHasta ? (
+              <p className="text-xs text-[#5B5B5B]">
+                Ventana de disponibilidad:{" "}
+                {formatFechaDisponibilidad(leccion.fechaDisponibleDesde) ?? "sin inicio"}{" "}
+                — {formatFechaDisponibilidad(leccion.fechaDisponibleHasta) ?? "sin cierre"}
+              </p>
+            ) : (
+              <p className="text-xs text-[#5B5B5B]">Sin restricción de fechas configurada</p>
+            )}
+          </div>
 
           {/* ── Tab bar ─────────────────────────────────────────────────── */}
           <div className="inline-flex items-center bg-[#7297C9] rounded-full p-1 mb-6 gap-0">

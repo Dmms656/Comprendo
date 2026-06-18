@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation"
 import { ArrowUp, Pencil, Check, X } from "lucide-react"
 import { AuthLayout } from "@/components/auth-layout"
 import { CourseSidebar } from "@/components/course-sidebar"
-import { generateQuestion, createLeccion, createPregunta, getEstudiantes, startEvaluationForStudent, getLeccion, getPreguntas, updatePregunta, changeLeccionEstado } from "@/lib/api"
+import { generateQuestion, createLeccion, createPregunta, getEstudiantes, startEvaluationForStudent, getLeccion, getPreguntas, updatePregunta, changeLeccionEstado, updateLeccion } from "@/lib/api"
+import { fromDatetimeLocal, toDatetimeLocal } from "@/lib/datetime"
 import type { GeneratedQuestion, Opcion, Estudiante } from "@/lib/types"
 import {
   Breadcrumb,
@@ -80,6 +81,9 @@ export function NuevaLeccionPage({
   const [isTyping, setIsTyping] = useState(false)
   const [phase, setPhase] = useState<ChatPhase>("ask_input")
   const [topic, setTopic] = useState("")
+  const [lessonTitle, setLessonTitle] = useState("")
+  const [fechaDesdeInput, setFechaDesdeInput] = useState("")
+  const [fechaHastaInput, setFechaHastaInput] = useState("")
   const [totalQuestions, setTotalQuestions] = useState(0)
   const [generatedQuestions, setGeneratedQuestions] = useState<GeneratedQuestion[]>([])
   const [publishing, setPublishing] = useState(false)
@@ -130,6 +134,9 @@ export function NuevaLeccionPage({
         ])
         if (!cancelled) {
           setTopic(lessonData.tema)
+          setLessonTitle(lessonData.titulo || lessonData.tema)
+          setFechaDesdeInput(toDatetimeLocal(lessonData.fechaDisponibleDesde))
+          setFechaHastaInput(toDatetimeLocal(lessonData.fechaDisponibleHasta))
           setTotalQuestions(questionsData.length)
           const mappedQuestions: GeneratedQuestion[] = questionsData.map((q) => ({
             id: q.id,
@@ -224,6 +231,7 @@ export function NuevaLeccionPage({
         }
 
         setTopic(parsedTopic)
+        if (!lessonTitle.trim()) setLessonTitle(parsedTopic)
         setTotalQuestions(count)
         setPhase("generating")
         setIsTyping(false)
@@ -281,6 +289,19 @@ export function NuevaLeccionPage({
     }
   }
 
+  const parseFechasDisponibilidad = () => ({
+    fechaDisponibleDesde: fromDatetimeLocal(fechaDesdeInput),
+    fechaDisponibleHasta: fromDatetimeLocal(fechaHastaInput),
+  })
+
+  const buildLeccionPayload = () => ({
+    tema: topic,
+    titulo: (lessonTitle || topic).trim(),
+    creadaConIa: true,
+    idDocenteCursoMateria: gradeId,
+    ...parseFechasDisponibilidad(),
+  })
+
   const handleSaveLesson = async () => {
     if (generatedQuestions.length === 0 || saving || publishing) return
     setSaving(true)
@@ -290,12 +311,7 @@ export function NuevaLeccionPage({
 
       if (!activeLessonId) {
         // 1. Create the leccion in backend
-        const leccion = await createLeccion({
-          tema: topic,
-          titulo: topic,
-          creadaConIa: true,
-          idDocenteCursoMateria: gradeId,
-        })
+        const leccion = await createLeccion(buildLeccionPayload())
         activeLessonId = leccion.id
 
         // 2. Create each pregunta in backend
@@ -312,6 +328,11 @@ export function NuevaLeccionPage({
           )
         }
       } else {
+        await updateLeccion(activeLessonId, {
+          titulo: (lessonTitle || topic).trim(),
+          tema: topic,
+          ...parseFechasDisponibilidad(),
+        })
         // Update each question in backend
         let idx = 1
         for (const q of generatedQuestions) {
@@ -359,12 +380,7 @@ export function NuevaLeccionPage({
 
       if (!activeLessonId) {
         // 1. Create the leccion in backend
-        const leccion = await createLeccion({
-          tema: topic,
-          titulo: topic,
-          creadaConIa: true,
-          idDocenteCursoMateria: gradeId,
-        })
+        const leccion = await createLeccion(buildLeccionPayload())
         activeLessonId = leccion.id
 
         // 2. Create each pregunta in backend and collect the created items (with their database IDs)
@@ -382,6 +398,11 @@ export function NuevaLeccionPage({
           creadas.push(dbPregunta)
         }
       } else {
+        await updateLeccion(activeLessonId, {
+          titulo: (lessonTitle || topic).trim(),
+          tema: topic,
+          ...parseFechasDisponibilidad(),
+        })
         // 1. Update questions and collect their updated representations
         let idx = 1
         for (const q of generatedQuestions) {
@@ -440,9 +461,10 @@ export function NuevaLeccionPage({
           startEvaluationForStudent({
             idLeccion: activeLessonId!,
             idEstudiante: e.id,
-            topic: topic,
+            topic: lessonTitle || topic,
             studentChatId: e.telegramChatId!,
             totalEstudiantes: estudiantesTelegram.length,
+            fechaDisponibleHasta: parseFechasDisponibilidad().fechaDisponibleHasta,
             preguntas: preguntasParaBot,
           }).catch((err) => {
             console.warn(`No se pudo enviar lección por Telegram a ${e.nombre}:`, err)
@@ -568,6 +590,47 @@ export function NuevaLeccionPage({
               </button>
             </div>
           </div>
+
+          {phase === "done" && (
+            <div className="mb-4 grid grid-cols-1 md:grid-cols-2 gap-4 bg-white/70 border border-[#F1D87C]/40 rounded-2xl p-4">
+              <div>
+                <label className="block text-xs font-bold text-[#9E5A78] uppercase tracking-wide mb-1.5">
+                  Nombre de la lección
+                </label>
+                <input
+                  type="text"
+                  value={lessonTitle}
+                  onChange={(e) => setLessonTitle(e.target.value)}
+                  maxLength={150}
+                  placeholder="Ej. Movimiento circular"
+                  className="w-full rounded-xl border border-[#F1D87C]/50 px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#5B9B95]/40"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-[#9E5A78] uppercase tracking-wide mb-1.5">
+                  Disponible desde
+                </label>
+                <input
+                  type="datetime-local"
+                  value={fechaDesdeInput}
+                  onChange={(e) => setFechaDesdeInput(e.target.value)}
+                  className="w-full rounded-xl border border-[#F1D87C]/50 px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#5B9B95]/40"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-[#9E5A78] uppercase tracking-wide mb-1.5">
+                  Disponible hasta
+                </label>
+                <input
+                  type="datetime-local"
+                  value={fechaHastaInput}
+                  onChange={(e) => setFechaHastaInput(e.target.value)}
+                  className="w-full rounded-xl border border-[#F1D87C]/50 px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#5B9B95]/40"
+                />
+                <p className="text-[10px] text-[#C66B86] mt-1">Deja vacío si no quieres restringir por fechas.</p>
+              </div>
+            </div>
+          )}
 
           {/* ── Layout Contenedor: Chat + Panel de Preguntas (si existen) ── */}
           <div className="flex-1 flex flex-col lg:flex-row gap-6 min-h-0">

@@ -3,8 +3,6 @@ using Comprendo.Application.Common.Extensions;
 using Comprendo.Application.Common.Interfaces;
 using Comprendo.Domain.Exceptions;
 using MediatR;
-using System.Security.Cryptography;
-using System.Text;
 
 namespace Comprendo.Application.Features.Asignaciones;
 
@@ -41,40 +39,15 @@ public class GenerarCodigoAsignacionCommandHandler : IRequestHandler<GenerarCodi
             throw new ForbiddenException("No tienes permiso para acceder a esta asignatura.");
         }
 
-        string codigo = string.Empty;
-        bool unique = false;
-        int retries = 0;
-
-        while (!unique && retries < 10)
+        if (!string.IsNullOrWhiteSpace(asignacion.CodigoAcceso))
         {
-            codigo = GenerateRandomCode(6);
-            var existing = await _repository.GetByCodigoAccesoAsync(codigo, cancellationToken);
-            if (existing is null)
-            {
-                unique = true;
-            }
-            retries++;
+            return asignacion.CodigoAcceso;
         }
 
-        if (!unique)
-        {
-            throw new Comprendo.Domain.Exceptions.ConflictException("No se pudo generar un código único.");
-        }
-
-        asignacion.CodigoAcceso = codigo;
+        asignacion.CodigoAcceso = await CodigoAccesoGenerator.GenerateUniqueAsync(_repository, cancellationToken);
+        await _repository.UpdateAsync(asignacion, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-        return codigo;
-    }
-
-    private static string GenerateRandomCode(int length)
-    {
-        const string chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-        var result = new StringBuilder(length);
-        for (int i = 0; i < length; i++)
-        {
-            result.Append(chars[RandomNumberGenerator.GetInt32(chars.Length)]);
-        }
-        return result.ToString();
+        return asignacion.CodigoAcceso;
     }
 }

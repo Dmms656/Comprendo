@@ -1,4 +1,4 @@
-﻿using Comprendo.Application.Abstractions.Persistence;
+using Comprendo.Application.Abstractions.Persistence;
 using Comprendo.Application.Common.Interfaces;
 using Comprendo.Application.Common.Mappings;
 using Comprendo.Domain.Entities;
@@ -34,6 +34,16 @@ public class CreateCursoCommandHandler : IRequestHandler<CreateCursoCommand, Cur
 
     public async Task<CursoDto> Handle(CreateCursoCommand request, CancellationToken cancellationToken)
     {
+        var existing = await _repository.GetCursoByComboAsync(
+            request.IdAnioLectivo,
+            request.IdNivel,
+            request.IdParalelo,
+            cancellationToken);
+        if (existing is not null)
+        {
+            return existing.ToDto();
+        }
+
         var entity = new Curso { IdAnioLectivo = request.IdAnioLectivo, IdNivel = request.IdNivel, IdParalelo = request.IdParalelo, Estado = Enum.Parse<EstadoCurso>(request.Estado, true) };
         var created = await _repository.CreateCursoAsync(entity, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);

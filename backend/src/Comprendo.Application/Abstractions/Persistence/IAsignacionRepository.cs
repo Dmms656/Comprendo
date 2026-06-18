@@ -1,4 +1,5 @@
 using Comprendo.Domain.Entities;
+using Comprendo.Domain.Enums;
 
 namespace Comprendo.Application.Abstractions.Persistence;
 
@@ -12,5 +13,13 @@ public interface IAsignacionRepository
 
     Task<bool> ExistsAsync(int idDocente, int idCurso, int idMateria, CancellationToken cancellationToken = default);
 
+    Task<DocenteCursoMateria?> GetByDocenteCursoMateriaAsync(
+        int idDocente,
+        int idCurso,
+        int idMateria,
+        CancellationToken cancellationToken = default);
+
     Task<DocenteCursoMateria> CreateAsync(DocenteCursoMateria entity, CancellationToken cancellationToken = default);
+
+    Task UpdateAsync(DocenteCursoMateria entity, CancellationToken cancellationToken = default);
 }

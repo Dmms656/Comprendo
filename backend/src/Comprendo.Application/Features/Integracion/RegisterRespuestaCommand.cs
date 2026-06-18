@@ -1,6 +1,7 @@
 using Comprendo.Application.Abstractions.Persistence;
 using Comprendo.Application.Common.Interfaces;
 using Comprendo.Application.Common.Mappings;
+using Comprendo.Application.Features.Lecciones;
 using Comprendo.Domain.Entities;
 using FluentValidation;
 using MediatR;
@@ -50,6 +51,16 @@ public class RegisterRespuestaCommandHandler : IRequestHandler<RegisterRespuesta
         RegisterRespuestaCommand request,
         CancellationToken cancellationToken)
     {
+        var leccion = await _repository.GetLeccionByIdEnvioAsync(request.IdEnvio, cancellationToken);
+        if (leccion is not null)
+        {
+            var fallo = LeccionDisponibilidad.ValidarVentana(leccion, _dateTime.UtcNow);
+            if (fallo is not null)
+            {
+                throw new ValidationException(new[] { fallo });
+            }
+        }
+
         var entity = new RespuestaEstudiante
         {
             IdEnvio = request.IdEnvio,

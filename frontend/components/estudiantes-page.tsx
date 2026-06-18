@@ -1,11 +1,11 @@
 "use client"
 
 import { useState, useMemo, useEffect, useCallback } from "react"
-import { Search, Link2, Copy, Check, RefreshCw, X, ArrowRight, UserPlus, HelpCircle } from "lucide-react"
+import { Search, Link2, Copy, Check, RefreshCw, X, ArrowRight, UserPlus, HelpCircle, Trash2 } from "lucide-react"
 import { AuthLayout } from "@/components/auth-layout"
 import { CourseSidebar } from "@/components/course-sidebar"
 import { CourseFlowHeader } from "@/components/course-flow-header"
-import { getEstudiantes, generarCodigo, getBotInfo } from "@/lib/api"
+import { getEstudiantes, generarCodigo, getBotInfo, removeEstudianteFromMateria, getAsignaciones } from "@/lib/api"
 import type { Estudiante } from "@/lib/types"
 import { useRouter } from "next/navigation"
 import {
@@ -126,35 +126,46 @@ export function EstudiantesPage({
     return () => { cancelled = true }
   }, [gradeId])
 
-  // Try loading or generating code on mount
+  // Cargar código estático del curso y enlace genérico al bot
   useEffect(() => {
-    async function fetchCode() {
+    async function loadEnrollmentInfo() {
       try {
-        const code = await generarCodigo(gradeId)
-        const link = `https://t.me/${botUsername}?start=${code}`
+        const asignaciones = await getAsignaciones()
+        const asignacion = asignaciones.find(
+          (a) => String(a.idDocenteCursoMateria) === String(gradeId)
+        )
+        let code = asignacion?.codigoAcceso ?? null
+        if (!code) {
+          code = await generarCodigo(gradeId)
+        }
         setEnrollCode(code)
-        setEnrollLink(link)
-      } catch (e) {
-        // ignore on load, can generate manually
+        setEnrollLink(`https://t.me/${botUsername}`)
+      } catch {
+        // El profesor puede reintentar con el botón
       }
     }
     if (botUsername && gradeId) {
-      fetchCode()
+      loadEnrollmentInfo()
     }
   }, [gradeId, botUsername])
 
   // ── Generate enrollment link manually ───────────────────────────────────────
-  const handleGenerarLink = async () => {
+  const handleObtenerCodigo = async () => {
     setGenerating(true)
     setGenError(null)
     try {
-      const code = await generarCodigo(gradeId)
-      const link = `https://t.me/${botUsername}?start=${code}`
+      const asignaciones = await getAsignaciones()
+      const asignacion = asignaciones.find(
+        (a) => String(a.idDocenteCursoMateria) === String(gradeId)
+      )
+      let code = asignacion?.codigoAcceso ?? null
+      if (!code) {
+        code = await generarCodigo(gradeId)
+      }
       setEnrollCode(code)
-      setEnrollLink(link)
-      await loadEstudiantes()
+      setEnrollLink(`https://t.me/${botUsername}`)
     } catch (err) {
-      setGenError(err instanceof Error ? err.message : "No se pudo generar el link")
+      setGenError(err instanceof Error ? err.message : "No se pudo obtener el código")
     } finally {
       setGenerating(false)
     }
@@ -197,6 +208,22 @@ export function EstudiantesPage({
 
     return result
   }, [estudiantes, search, sortAsc])
+
+  const [removingId, setRemovingId] = useState<string | number | null>(null)
+
+  const handleRemoveStudent = async (student: Estudiante) => {
+    const name = `${student.nombre} ${student.apellido ?? ""}`.trim()
+    if (!confirm(`¿Quitar a ${name} de este curso?`)) return
+    setRemovingId(student.id)
+    try {
+      await removeEstudianteFromMateria(student.id, gradeId)
+      await loadEstudiantes()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo quitar al estudiante")
+    } finally {
+      setRemovingId(null)
+    }
+  }
 
   const getPhone = (e: Estudiante) =>
     e.telefono ?? e.telefonoTelegram ?? e.telefonoCelular ?? "—"
@@ -260,16 +287,15 @@ export function EstudiantesPage({
             </div>
 
             {!enrollCode ? (
-              /* If code not generated yet, show dynamic action banner */
               <div className="bg-[#faf6df]/50 rounded-2xl p-5 border border-dashed border-[#F1D87C]/60 flex flex-col md:flex-row items-center justify-between gap-4">
                 <div className="space-y-1 max-w-xl">
                   <p className="text-sm font-bold text-[#9E5A78]">¡Comencemos a registrar estudiantes!</p>
                   <p className="text-xs text-[#C66B86] leading-relaxed">
-                    Genera el enlace de Telegram autogestionado para este curso. Al compartir este enlace, tus estudiantes podrán registrarse directamente chateando con el bot de Telegram de Comprendo.
+                    Obtén el código permanente de este curso. Los estudiantes abren el bot de Telegram, se registran con su teléfono y datos, e ingresan este código.
                   </p>
                 </div>
                 <button
-                  onClick={handleGenerarLink}
+                  onClick={handleObtenerCodigo}
                   disabled={generating}
                   className="bg-[#5B9B95] text-white px-6 py-3 rounded-2xl font-bold text-sm shadow-md shadow-[#5B9B95]/15 hover:shadow-lg transition-all duration-300 transform active:scale-95 flex items-center gap-2 flex-shrink-0 cursor-pointer disabled:opacity-50"
                 >
@@ -278,20 +304,20 @@ export function EstudiantesPage({
                   ) : (
                     <Link2 size={16} />
                   )}
-                  {generating ? "Generando..." : "Generar link de acceso"}
+                  {generating ? "Cargando..." : "Mostrar código del curso"}
                 </button>
               </div>
             ) : (
               /* Inline interactive details - zero modals! */
               <div className="space-y-5 animate-in fade-in slide-in-from-top-3 duration-300">
                 <p className="text-xs text-[#5B5B5B] leading-relaxed">
-                  Comparte el siguiente enlace o código con tus estudiantes de <strong>{gradeName} — {subject}</strong>. Al abrir el enlace, se registrarán automáticamente chateando con nuestro bot.
+                  Comparte el enlace del bot y el código con tus estudiantes de <strong>{gradeName} — {subject}</strong>. El código es permanente para este curso.
                 </p>
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                   {/* Left: Link display card */}
                   <div className="bg-[#faf6df]/40 rounded-2xl p-4 border border-[#F1D87C]/30 flex flex-col justify-between gap-3">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-[#C66B86]">Enlace directo de Telegram</span>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-[#C66B86]">Enlace al bot de Telegram</span>
                     <div className="flex items-center gap-2">
                       <div className="flex-1 bg-white border border-[#F1D87C]/40 rounded-xl py-2.5 px-3.5 text-xs text-[#5B9B95] font-bold overflow-hidden text-ellipsis whitespace-nowrap">
                         {enrollLink}
@@ -312,7 +338,7 @@ export function EstudiantesPage({
 
                   {/* Right: Code display card */}
                   <div className="bg-[#faf6df]/40 rounded-2xl p-4 border border-[#F1D87C]/30 flex flex-col justify-between gap-3">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-[#C66B86]">Código de acceso rápido</span>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-[#C66B86]">Código del curso (permanente)</span>
                     <div className="flex items-center gap-2">
                       <div className="flex-1 bg-white border border-[#F1D87C]/40 rounded-xl py-2 font-mono text-xl font-bold tracking-[0.2em] text-[#9E5A78] text-center">
                         {enrollCode}
@@ -340,9 +366,10 @@ export function EstudiantesPage({
                   <div>
                     <strong>📱 ¿Cómo se inscriben tus estudiantes?</strong>
                     <ul className="list-disc pl-4 mt-1 space-y-1 text-[#5272a0]/90">
-                      <li>Hacen clic en el enlace copiado o abren Telegram y buscan <strong>@{botUsername}</strong></li>
-                      <li>Inician el chat con el comando <code>/start {enrollCode}</code></li>
-                      <li>El bot los inscribe inmediatamente y aparecerán registrados abajo en tiempo real.</li>
+                      <li>Abren el enlace del bot o buscan <strong>@{botUsername}</strong> en Telegram</li>
+                      <li>Escriben <code>/start</code> y el bot los guía paso a paso</li>
+                      <li>Comparten su número, escriben su <strong>nombre y apellido</strong> (no los de la cuenta de Telegram)</li>
+                      <li>Ingresan el código <strong>{enrollCode}</strong> de este curso</li>
                     </ul>
                   </div>
                 </div>
@@ -414,10 +441,11 @@ export function EstudiantesPage({
                         <span className="text-[10px] text-[#C66B86]">{sortAsc ? "▲" : "▼"}</span>
                       </span>
                     </th>
-                    <th
-                      className="px-6 py-4 text-xs font-black text-[#5B9B95] uppercase tracking-wider text-center"
-                    >
+                    <th className="px-6 py-4 text-xs font-black text-[#5B9B95] uppercase tracking-wider text-center">
                       Teléfono Telegram
+                    </th>
+                    <th className="px-6 py-4 text-xs font-black text-[#C66B86] uppercase tracking-wider text-center">
+                      Acciones
                     </th>
                   </tr>
                 </thead>
@@ -437,11 +465,23 @@ export function EstudiantesPage({
                         <td className="px-6 py-3.5 text-gray-600 text-center font-mono text-xs">
                           {getPhone(student)}
                         </td>
+                        <td className="px-6 py-3.5 text-center">
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveStudent(student)}
+                            disabled={removingId === student.id}
+                            className="inline-flex items-center gap-1 text-xs font-bold text-[#d4776a] hover:bg-[#d4776a]/10 px-2 py-1 rounded-lg disabled:opacity-50"
+                            title="Quitar del curso"
+                          >
+                            <Trash2 size={14} />
+                            {removingId === student.id ? "..." : "Quitar"}
+                          </button>
+                        </td>
                       </tr>
                     ))
                   ) : (
                     <tr>
-                      <td colSpan={2} className="px-6 py-12 text-center text-[#C66B86] font-semibold italic">
+                      <td colSpan={3} className="px-6 py-12 text-center text-[#C66B86] font-semibold italic">
                         No hay estudiantes inscritos en este curso todavía.
                       </td>
                     </tr>

@@ -9,6 +9,7 @@ import type {
   Estudiante,
   EstudiantesResponse,
   CreateLeccionRequest,
+  UpdateLeccionRequest,
   CreatePreguntaRequest,
   GenerateQuestionsRequest,
   GenerateQuestionsResponse,
@@ -157,7 +158,64 @@ export async function getDashboard(): Promise<Record<string, unknown>> {
 // ─── Asignaciones ─────────────────────────────────────────────────────────────
 
 export async function getAsignaciones(): Promise<Asignacion[]> {
-  return request<Asignacion[]>("/api/asignaciones")
+  const res = await request<any[]>("/api/asignaciones")
+  return res.map((item) => ({
+    idDocenteCursoMateria: item.idDocenteCursoMateria,
+    idCurso: item.idCurso,
+    idMateria: item.idMateria,
+    idAnioLectivo: item.idAnioLectivo,
+    idNivel: item.idNivel,
+    idParalelo: item.idParalelo,
+    materia: item.materia,
+    nivel: item.nivel,
+    paralelo: item.paralelo,
+    anioLectivo: item.anioLectivo,
+    codigoAcceso: item.codigoAcceso,
+    estado: item.estado,
+  }))
+}
+
+export async function updateAsignacion(
+  idDocenteCursoMateria: number | string,
+  idCurso: number,
+  idMateria: number
+): Promise<Asignacion> {
+  const res = await request<any>(`/api/asignaciones/${idDocenteCursoMateria}`, {
+    method: "PUT",
+    body: JSON.stringify({ idCurso, idMateria }),
+  })
+  return {
+    idDocenteCursoMateria: res.idDocenteCursoMateria,
+    idCurso: res.idCurso,
+    idMateria: res.idMateria,
+    idAnioLectivo: res.idAnioLectivo,
+    idNivel: res.idNivel,
+    idParalelo: res.idParalelo,
+    materia: res.materia,
+    nivel: res.nivel,
+    paralelo: res.paralelo,
+    anioLectivo: res.anioLectivo,
+    codigoAcceso: res.codigoAcceso,
+    estado: res.estado,
+  }
+}
+
+export async function deactivateAsignacion(idDocenteCursoMateria: number | string): Promise<void> {
+  await request(`/api/asignaciones/${idDocenteCursoMateria}`, { method: "DELETE" })
+}
+
+function mapLeccion(item: any): Leccion {
+  return {
+    ...item,
+    id: item.id ?? item.idLeccion,
+    titulo: item.titulo ?? item.Titulo,
+    tema: item.tema ?? item.Tema ?? item.titulo ?? "",
+    idDocenteCursoMateria: item.idDocenteCursoMateria ?? item.IdDocenteCursoMateria,
+    fechaDisponibleDesde: item.fechaDisponibleDesde ?? item.FechaDisponibleDesde ?? null,
+    fechaDisponibleHasta: item.fechaDisponibleHasta ?? item.FechaDisponibleHasta ?? null,
+    estado: item.estado ?? item.Estado,
+    fechaCreacion: item.fechaCreacion ?? item.FechaCreacion,
+  }
 }
 
 // ─── Lecciones ────────────────────────────────────────────────────────────────
@@ -170,20 +228,12 @@ export async function getLecciones(idDocenteCursoMateria?: string | number): Pro
   const res = await request<LeccionesResponse | any[]>(url)
   // Handle both `{ items: [...] }` and `[...]` response shapes
   const items = Array.isArray(res) ? res : (res as LeccionesResponse).items ?? []
-  return items.map((item: any) => ({
-    ...item,
-    id: item.id ?? item.idLeccion,
-    idDocenteCursoMateria: item.idDocenteCursoMateria ?? item.IdDocenteCursoMateria,
-  }))
+  return items.map((item: any) => mapLeccion(item))
 }
 
 export async function getLeccion(id: string | number): Promise<Leccion> {
   const res = await request<any>(`/api/lecciones/${id}`)
-  return {
-    ...res,
-    id: res.id ?? res.idLeccion,
-    idDocenteCursoMateria: res.idDocenteCursoMateria ?? res.IdDocenteCursoMateria,
-  }
+  return mapLeccion(res)
 }
 
 export async function changeLeccionEstado(
@@ -194,11 +244,25 @@ export async function changeLeccionEstado(
     method: "PATCH",
     body: JSON.stringify({ estado }),
   })
-  return {
-    ...res,
-    id: res.id ?? res.idLeccion,
-    idDocenteCursoMateria: res.idDocenteCursoMateria ?? res.IdDocenteCursoMateria,
-  }
+  return mapLeccion(res)
+}
+
+export async function updateLeccion(
+  leccionId: string | number,
+  data: UpdateLeccionRequest
+): Promise<Leccion> {
+  const res = await request<any>(`/api/lecciones/${leccionId}`, {
+    method: "PUT",
+    body: JSON.stringify({
+      titulo: data.titulo,
+      descripcion: data.descripcion ?? null,
+      tema: data.tema ?? data.titulo,
+      fechaProgramada: null,
+      fechaDisponibleDesde: data.fechaDisponibleDesde ?? null,
+      fechaDisponibleHasta: data.fechaDisponibleHasta ?? null,
+    }),
+  })
+  return mapLeccion(res)
 }
 
 export async function createLeccion(data: CreateLeccionRequest): Promise<Leccion> {
@@ -206,11 +270,7 @@ export async function createLeccion(data: CreateLeccionRequest): Promise<Leccion
     method: "POST",
     body: JSON.stringify(data),
   })
-  return {
-    ...res,
-    id: res.id ?? res.idLeccion,
-    idDocenteCursoMateria: res.idDocenteCursoMateria ?? res.IdDocenteCursoMateria ?? data.idDocenteCursoMateria,
-  }
+  return mapLeccion({ ...res, idDocenteCursoMateria: res.idDocenteCursoMateria ?? data.idDocenteCursoMateria })
 }
 
 // ─── Preguntas ────────────────────────────────────────────────────────────────
@@ -423,6 +483,15 @@ export async function getEstudiantes(idDocenteCursoMateria: string | number): Pr
   }))
 }
 
+export async function removeEstudianteFromMateria(
+  idEstudiante: number | string,
+  idDocenteCursoMateria: number | string
+): Promise<void> {
+  await request(`/api/estudiantes/${idEstudiante}/materias/${idDocenteCursoMateria}`, {
+    method: "DELETE",
+  })
+}
+
 export async function createEstudiante(data: unknown): Promise<Estudiante> {
   return request<Estudiante>("/api/estudiantes", {
     method: "POST",
@@ -485,6 +554,7 @@ export async function generateQuestion(
 
 // ─── Código de acceso ─────────────────────────────────────────────────────────
 
+/** Obtiene el código de inscripción del curso (lo crea solo si aún no existe). */
 export async function generarCodigo(idDocenteCursoMateria: string | number): Promise<string> {
   const token = getToken()
   const headers: Record<string, string> = {
@@ -518,6 +588,17 @@ export async function generarCodigo(idDocenteCursoMateria: string | number): Pro
 
 // ─── Bot / Telegram ───────────────────────────────────────────────────────────
 
+/** Despierta el backend en Render (evita cold start). */
+export async function wakeApi(): Promise<void> {
+  const healthPath = BASE_URL ? `${BASE_URL}/health` : "/api-health"
+  await fetch(healthPath, { method: "GET", cache: "no-store" }).catch(() => {})
+}
+
+/** Despierta API y bot al entrar al inicio. */
+export async function wakeServices(): Promise<void> {
+  await Promise.allSettled([wakeApi(), activateBot()])
+}
+
 export async function activateBot(): Promise<BotInfoResponse> {
   return requestBot<BotInfoResponse>("/api/bot/activate", { method: "POST" })
 }
@@ -539,6 +620,7 @@ export async function startEvaluationForStudent(data: {
   topic: string
   studentChatId: string
   totalEstudiantes?: number
+  fechaDisponibleHasta?: string | null
   preguntas: Array<{
     idPregunta: number | string
     orden?: number

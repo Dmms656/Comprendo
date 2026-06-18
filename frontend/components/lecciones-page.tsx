@@ -288,7 +288,7 @@ export function LeccionesPage({
                         <div className="space-y-1">
                           <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Tema Evaluado</span>
                           <p className="font-black text-lg text-[#9E5A78] leading-tight group-hover:text-[#5B9B95] transition-colors break-words">
-                            {lesson.tema}
+                            {lesson.titulo || lesson.tema}
                           </p>
                         </div>
 

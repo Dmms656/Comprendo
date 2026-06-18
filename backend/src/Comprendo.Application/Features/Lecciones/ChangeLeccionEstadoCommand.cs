@@ -24,15 +24,18 @@ public class ChangeLeccionEstadoCommandHandler : IRequestHandler<ChangeLeccionEs
 {
     private readonly ILeccionRepository _repository;
     private readonly ICurrentUserService _currentUser;
+    private readonly IDateTimeProvider _dateTime;
     private readonly IUnitOfWork _unitOfWork;
 
     public ChangeLeccionEstadoCommandHandler(
         ILeccionRepository repository,
         ICurrentUserService currentUser,
+        IDateTimeProvider dateTime,
         IUnitOfWork unitOfWork)
     {
         _repository = repository;
         _currentUser = currentUser;
+        _dateTime = dateTime;
         _unitOfWork = unitOfWork;
     }
 

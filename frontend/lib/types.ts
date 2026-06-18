@@ -15,20 +15,29 @@ export interface Teacher {
 
 export interface Asignacion {
   idDocenteCursoMateria: number | string
+  idCurso?: number | string
+  idMateria?: number | string
+  idAnioLectivo?: number | string
+  idNivel?: number | string
+  idParalelo?: number | string
   materia: string
   nivel: string
   paralelo: string
   anioLectivo: string
   codigoAcceso?: string
+  estado?: string
 }
 
 export interface Leccion {
   id: number | string
+  titulo?: string
   tema: string
   fechaCreacion?: string
   hora?: string
   estado?: string
   idDocenteCursoMateria?: number | string
+  fechaDisponibleDesde?: string | null
+  fechaDisponibleHasta?: string | null
 }
 
 export interface LeccionesResponse {
@@ -86,6 +95,16 @@ export interface CreateLeccionRequest {
   titulo?: string
   descripcion?: string
   creadaConIa?: boolean
+  fechaDisponibleDesde?: string | null
+  fechaDisponibleHasta?: string | null
+}
+
+export interface UpdateLeccionRequest {
+  titulo: string
+  tema?: string
+  descripcion?: string
+  fechaDisponibleDesde?: string | null
+  fechaDisponibleHasta?: string | null
 }
 
 export interface CreatePreguntaRequest {

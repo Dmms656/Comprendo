@@ -62,6 +62,14 @@ public class EstudiantesController(ISender sender) : ControllerBase
         [FromBody] EnrollMateriaBody body,
         CancellationToken cancellationToken) =>
         Ok(await sender.Send(new EnrollEstudianteMateriaCommand(id, body.IdDocenteCursoMateria), cancellationToken));
+
+    /// <summary>Quita a un estudiante de una asignación (matrícula lógica).</summary>
+    [HttpDelete("{id:int}/materias/{idDocenteCursoMateria:int}")]
+    public async Task<ActionResult<bool>> UnenrollMateria(
+        int id,
+        int idDocenteCursoMateria,
+        CancellationToken cancellationToken) =>
+        Ok(await sender.Send(new UnenrollEstudianteMateriaCommand(id, idDocenteCursoMateria), cancellationToken));
 }
 
 public record UpdateEstudianteBody(

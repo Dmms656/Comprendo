@@ -126,9 +126,7 @@ CREATE TABLE docente_curso_materia (
         ON DELETE RESTRICT,
     CONSTRAINT fk_dcm_materia
         FOREIGN KEY (id_materia) REFERENCES materias (id_materia)
-        ON DELETE RESTRICT,
-    CONSTRAINT uq_docente_curso_materia
-        UNIQUE (id_docente, id_curso, id_materia)
+        ON DELETE RESTRICT
 );
 
 CREATE TABLE estudiante_curso (
@@ -181,6 +179,8 @@ CREATE TABLE lecciones (
     estado                      VARCHAR(20) NOT NULL DEFAULT 'BORRADOR'
         CHECK (estado IN ('BORRADOR', 'PROGRAMADA', 'ENVIADA', 'CERRADA', 'CANCELADA')),
     creada_con_ia               BOOLEAN NOT NULL DEFAULT FALSE,
+    fecha_disponible_desde      TIMESTAMPTZ,
+    fecha_disponible_hasta      TIMESTAMPTZ,
     CONSTRAINT fk_lecciones_dcm
         FOREIGN KEY (id_docente_curso_materia)
         REFERENCES docente_curso_materia (id_docente_curso_materia)
@@ -387,6 +387,7 @@ CREATE INDEX idx_cursos_anio ON cursos (id_anio_lectivo);
 CREATE INDEX idx_dcm_docente ON docente_curso_materia (id_docente);
 CREATE INDEX idx_dcm_curso ON docente_curso_materia (id_curso);
 CREATE INDEX idx_dcm_materia ON docente_curso_materia (id_materia);
+CREATE UNIQUE INDEX uq_dcm_activo ON docente_curso_materia (id_docente, id_curso, id_materia) WHERE estado = 'ACTIVO';
 CREATE UNIQUE INDEX uq_docente_curso_materia_codigo_acceso ON docente_curso_materia (codigo_acceso) WHERE codigo_acceso IS NOT NULL;
 
 CREATE INDEX idx_estudiante_materia_dcm ON estudiante_materia (id_docente_curso_materia);

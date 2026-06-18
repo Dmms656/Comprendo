@@ -49,4 +49,11 @@ public class IntegracionController(ISender sender) : ControllerBase
         [FromBody] VincularEstudianteCodigoCommand command,
         CancellationToken cancellationToken) =>
         Ok(await sender.Send(command, cancellationToken));
+
+    /// <summary>Consulta si un chat de Telegram ya está registrado como estudiante.</summary>
+    [HttpGet("estudiante-telegram/{telegramChatId}")]
+    public async Task<ActionResult<EstudianteTelegramStatusDto>> GetEstudianteTelegramStatus(
+        string telegramChatId,
+        CancellationToken cancellationToken) =>
+        Ok(await sender.Send(new GetEstudianteTelegramStatusQuery(telegramChatId), cancellationToken));
 }

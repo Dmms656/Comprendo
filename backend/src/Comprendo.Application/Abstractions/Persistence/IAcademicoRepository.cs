@@ -23,6 +23,7 @@ public interface IAcademicoRepository
 
     Task<PaginatedList<Curso>> ListCursosAsync(int pageNumber, int pageSize, CancellationToken cancellationToken = default);
     Task<Curso?> GetCursoByIdAsync(int id, CancellationToken cancellationToken = default);
+    Task<Curso?> GetCursoByComboAsync(int idAnioLectivo, int idNivel, int idParalelo, CancellationToken cancellationToken = default);
     Task<Curso> CreateCursoAsync(Curso entity, CancellationToken cancellationToken = default);
     Task UpdateCursoAsync(Curso entity, CancellationToken cancellationToken = default);
 

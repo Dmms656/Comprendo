@@ -12,6 +12,8 @@ public class Leccion
     public int NumeroPreguntas { get; set; }
     public DateTimeOffset FechaCreacion { get; set; }
     public DateTimeOffset? FechaProgramada { get; set; }
+    public DateTimeOffset? FechaDisponibleDesde { get; set; }
+    public DateTimeOffset? FechaDisponibleHasta { get; set; }
     public EstadoLeccion Estado { get; set; }
     public bool CreadaConIa { get; set; }
 

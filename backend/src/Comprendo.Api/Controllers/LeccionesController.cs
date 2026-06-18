@@ -35,7 +35,7 @@ public class LeccionesController(ISender sender) : ControllerBase
         [FromBody] UpdateLeccionBody body,
         CancellationToken cancellationToken) =>
         Ok(await sender.Send(
-            new UpdateLeccionCommand(id, body.Titulo, body.Descripcion, body.Tema, body.FechaProgramada),
+            new UpdateLeccionCommand(id, body.Titulo, body.Descripcion, body.Tema, body.FechaProgramada, body.FechaDisponibleDesde, body.FechaDisponibleHasta),
             cancellationToken));
 
     /// <summary>Cambia el estado de una lección (BORRADOR, PROGRAMADA, ENVIADA, etc.).</summary>
@@ -47,6 +47,6 @@ public class LeccionesController(ISender sender) : ControllerBase
         Ok(await sender.Send(new ChangeLeccionEstadoCommand(id, body.Estado), cancellationToken));
 }
 
-public record UpdateLeccionBody(string Titulo, string? Descripcion, string? Tema, DateTimeOffset? FechaProgramada);
+public record UpdateLeccionBody(string Titulo, string? Descripcion, string? Tema, DateTimeOffset? FechaProgramada, DateTimeOffset? FechaDisponibleDesde, DateTimeOffset? FechaDisponibleHasta);
 
 public record ChangeEstadoBody(string Estado);

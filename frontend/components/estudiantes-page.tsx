@@ -367,7 +367,7 @@ export function EstudiantesPage({
                     <strong>📱 ¿Cómo se inscriben tus estudiantes?</strong>
                     <ul className="list-disc pl-4 mt-1 space-y-1 text-[#5272a0]/90">
                       <li>Abren el enlace del bot (envía <code>/start</code> automáticamente) o buscan <strong>@{botUsername}</strong></li>
-                      <li>Si es su primera vez: comparten teléfono, escriben <strong>nombre y apellido</strong>, luego el código</li>
+                      <li>Si es su primera vez: teléfono → nombre → apellido → código → verificación</li>
                       <li>Si ya están registrados: el bot les pedirá directamente el código <strong>{enrollCode}</strong></li>
                     </ul>
                   </div>

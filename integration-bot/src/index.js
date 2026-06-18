@@ -72,8 +72,34 @@ const REG_STEP = {
   NOMBRES: "nombres",
   APELLIDOS: "apellidos",
   CODIGO: "codigo",
+  VERIFICACION: "verificacion",
   CODIGO_EXISTING: "codigo_existing",
 };
+
+function isAffirmative(text) {
+  const normalized = (text || "").trim().toUpperCase().normalize("NFD").replace(/\p{M}/gu, "");
+  return ["SI", "S", "OK", "CONFIRMAR", "CORRECTO", "YES"].includes(normalized);
+}
+
+function formatPhoneDisplay(phone) {
+  if (!phone) return "—";
+  return phone.startsWith("+") ? phone : `+${phone}`;
+}
+
+async function showVerificationSummary(chatId, session) {
+  await bot.sendMessage(
+    chatId,
+    `📋 *Paso 5 de 5 — Revisa tus datos*\n\n` +
+      `• *Nombre:* ${session.nombres}\n` +
+      `• *Apellido:* ${session.apellidos}\n` +
+      `• *Teléfono:* ${formatPhoneDisplay(session.phone)}\n` +
+      `• *Código del curso:* ${session.codigoAcceso}\n\n` +
+      `Si algo está mal, escribe el número para corregirlo:\n` +
+      `*1* Nombre · *2* Apellido · *3* Teléfono · *4* Código\n\n` +
+      `Si todo está correcto, escribe *SI* para confirmar.`,
+    { parse_mode: "Markdown", reply_markup: { remove_keyboard: true } }
+  );
+}
 
 function normalizeCourseCode(text) {
   return (text || "").trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
@@ -154,9 +180,9 @@ async function enrollWithCode(chatId, username, session, code) {
   };
 
   const { ok, result, errMsg } = await vincularEstudianteCodigo(payload);
-  registrationSessions.delete(chatId);
 
   if (ok && result.exito) {
+    registrationSessions.delete(chatId);
     await bot.sendMessage(
       chatId,
       `¡Listo! Te inscribiste en *${result.materiaNombre}* 📚\n\nYa puedes recibir evaluaciones de tu profesor.`,
@@ -165,7 +191,10 @@ async function enrollWithCode(chatId, username, session, code) {
     return true;
   }
 
+  session.step = REG_STEP.VERIFICACION;
+  registrationSessions.set(chatId, session);
   await bot.sendMessage(chatId, `No se pudo completar la inscripción: ${result?.mensaje || errMsg}`);
+  await showVerificationSummary(chatId, session);
   return false;
 }
 
@@ -194,7 +223,7 @@ async function handleStartCommand(chatId, username) {
   registrationSessions.set(chatId, { step: REG_STEP.PHONE });
   await bot.sendMessage(
     chatId,
-    "¡Hola! Bienvenido a *Comprendo* 📚\n\nPara inscribirte en un curso necesitamos registrarte.\n\n*Paso 1 de 4:* Comparte tu número de teléfono con el botón de abajo.\n\n(Tu nombre y apellido los escribirás en los siguientes pasos, no usamos los de la cuenta de Telegram.)",
+    "¡Hola! Bienvenido a *Comprendo* 📚\n\nPara inscribirte en un curso necesitamos registrarte.\n\n*Paso 1 de 5:* Comparte tu número de teléfono con el botón de abajo.\n\n(Tu nombre y apellido los escribirás en los siguientes pasos, no usamos los de la cuenta de Telegram.)",
     {
       parse_mode: "Markdown",
       reply_markup: contactShareKeyboard(),
@@ -208,12 +237,25 @@ async function handleRegistrationContact(chatId, msg) {
   const session = registrationSessions.get(chatId) || { step: REG_STEP.PHONE };
 
   session.phone = phoneNumber;
+
+  if (session.returnToVerify && session.codigoAcceso) {
+    session.returnToVerify = false;
+    session.step = REG_STEP.VERIFICACION;
+    registrationSessions.set(chatId, session);
+    await bot.sendMessage(chatId, "✅ Teléfono actualizado.", {
+      parse_mode: "Markdown",
+      reply_markup: { remove_keyboard: true },
+    });
+    await showVerificationSummary(chatId, session);
+    return;
+  }
+
   session.step = REG_STEP.NOMBRES;
   registrationSessions.set(chatId, session);
 
   await bot.sendMessage(
     chatId,
-    "✅ Número recibido.\n\n*Paso 2 de 4:* Escribe tu *nombre* tal como figura en tus documentos.",
+    "✅ Número recibido.\n\n*Paso 2 de 5:* Escribe tu *nombre* tal como figura en tus documentos.",
     { parse_mode: "Markdown", reply_markup: { remove_keyboard: true } }
   );
 }
@@ -233,15 +275,67 @@ async function handleRegistrationText(chatId, username, text) {
     return true;
   }
 
+  if (session.step === REG_STEP.VERIFICACION) {
+    if (isAffirmative(trimmed)) {
+      await enrollWithCode(chatId, username, session, session.codigoAcceso);
+      return true;
+    }
+    if (trimmed === "1") {
+      session.step = REG_STEP.NOMBRES;
+      registrationSessions.set(chatId, session);
+      await bot.sendMessage(chatId, "Escribe tu *nombre* corregido:", { parse_mode: "Markdown" });
+      return true;
+    }
+    if (trimmed === "2") {
+      session.step = REG_STEP.APELLIDOS;
+      registrationSessions.set(chatId, session);
+      await bot.sendMessage(
+        chatId,
+        "Escribe tu *apellido* corregido.\n\n_Si tienes dos, escríbelos juntos en un solo mensaje._",
+        { parse_mode: "Markdown" }
+      );
+      return true;
+    }
+    if (trimmed === "3") {
+      session.step = REG_STEP.PHONE;
+      session.returnToVerify = true;
+      registrationSessions.set(chatId, session);
+      await promptSharePhone(chatId);
+      return true;
+    }
+    if (trimmed === "4") {
+      session.step = REG_STEP.CODIGO;
+      registrationSessions.set(chatId, session);
+      await bot.sendMessage(chatId, "Escribe el *código del curso* corregido:", { parse_mode: "Markdown" });
+      return true;
+    }
+    await bot.sendMessage(
+      chatId,
+      "Responde *SI* para confirmar, o escribe *1*, *2*, *3* o *4* para corregir un dato.",
+      { parse_mode: "Markdown" }
+    );
+    return true;
+  }
+
   if (session.step === REG_STEP.NOMBRES) {
     if (trimmed.length < 2) {
       await bot.sendMessage(chatId, "El nombre debe tener al menos 2 caracteres. Inténtalo de nuevo.");
       return true;
     }
     session.nombres = trimmed;
+    if (session.codigoAcceso) {
+      session.step = REG_STEP.VERIFICACION;
+      registrationSessions.set(chatId, session);
+      await showVerificationSummary(chatId, session);
+      return true;
+    }
     session.step = REG_STEP.APELLIDOS;
     registrationSessions.set(chatId, session);
-    await bot.sendMessage(chatId, "*Paso 3 de 4:* Ahora escribe tu *apellido*.", { parse_mode: "Markdown" });
+    await bot.sendMessage(
+      chatId,
+      "*Paso 3 de 5:* Escribe tu *apellido* (el de tus documentos).\n\n_Si tienes dos apellidos, escríbelos juntos en un solo mensaje. No uses el apellido de la cuenta de Telegram._",
+      { parse_mode: "Markdown" }
+    );
     return true;
   }
 
@@ -251,17 +345,36 @@ async function handleRegistrationText(chatId, username, text) {
       return true;
     }
     session.apellidos = trimmed;
+    if (session.codigoAcceso) {
+      session.step = REG_STEP.VERIFICACION;
+      registrationSessions.set(chatId, session);
+      await showVerificationSummary(chatId, session);
+      return true;
+    }
     session.step = REG_STEP.CODIGO;
     registrationSessions.set(chatId, session);
     await bot.sendMessage(
       chatId,
-      `Gracias, *${session.nombres} ${session.apellidos}*.\n\n*Paso 4 de 4:* Escribe el *código del curso* que te dio tu profesor.`,
+      `Gracias, *${session.nombres} ${session.apellidos}*.\n\n*Paso 4 de 5:* Escribe el *código del curso* que te dio tu profesor.`,
       { parse_mode: "Markdown" }
     );
     return true;
   }
 
-  if (session.step === REG_STEP.CODIGO || session.step === REG_STEP.CODIGO_EXISTING) {
+  if (session.step === REG_STEP.CODIGO) {
+    const code = normalizeCourseCode(trimmed);
+    if (!isValidCourseCode(code)) {
+      await bot.sendMessage(chatId, "⚠️ Código no válido. Verifica el código de tu profesor e inténtalo de nuevo.");
+      return true;
+    }
+    session.codigoAcceso = code;
+    session.step = REG_STEP.VERIFICACION;
+    registrationSessions.set(chatId, session);
+    await showVerificationSummary(chatId, session);
+    return true;
+  }
+
+  if (session.step === REG_STEP.CODIGO_EXISTING) {
     const code = normalizeCourseCode(trimmed);
     if (!isValidCourseCode(code)) {
       await bot.sendMessage(chatId, "⚠️ Código no válido. Verifica el código de tu profesor e inténtalo de nuevo.");

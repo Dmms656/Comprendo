@@ -83,6 +83,33 @@ function isValidCourseCode(code) {
   return /^[A-Z0-9]{4,10}$/.test(code);
 }
 
+function looksLikePhoneNumber(text) {
+  const trimmed = (text || "").trim();
+  if (!trimmed) return false;
+  const digits = trimmed.replace(/\D/g, "");
+  if (digits.length < 8 || digits.length > 15) return false;
+  return /^[+]?[\d\s\-().]{8,24}$/.test(trimmed);
+}
+
+function contactShareKeyboard() {
+  return {
+    keyboard: [[{ text: "📱 Compartir mi número", request_contact: true }]],
+    resize_keyboard: true,
+    one_time_keyboard: true,
+  };
+}
+
+async function promptSharePhone(chatId, typedNumber = false) {
+  const message = typedNumber
+    ? "⚠️ *No escribas tu número en el chat.*\n\nPor seguridad debes usar el botón de abajo para *compartir tu contacto* desde Telegram. Eso nos permite verificar tu cuenta correctamente."
+    : "Para continuar el registro, presiona el botón de abajo para *compartir tu número* desde Telegram.\n\nNo lo escribas como mensaje de texto.";
+
+  await bot.sendMessage(chatId, message, {
+    parse_mode: "Markdown",
+    reply_markup: contactShareKeyboard(),
+  });
+}
+
 async function fetchStudentTelegramStatus(chatId) {
   const response = await fetch(
     `${CORE_API_URL()}/api/integracion/estudiante-telegram/${encodeURIComponent(chatId)}`,
@@ -169,11 +196,7 @@ async function handleStartCommand(chatId, username) {
     "¡Hola! Bienvenido a *Comprendo* 📚\n\nPara inscribirte en un curso necesitamos registrarte.\n\n*Paso 1 de 4:* Comparte tu número de teléfono con el botón de abajo.\n\n(Tu nombre y apellido los escribirás en los siguientes pasos, no usamos los de la cuenta de Telegram.)",
     {
       parse_mode: "Markdown",
-      reply_markup: {
-        keyboard: [[{ text: "📱 Compartir mi número", request_contact: true }]],
-        resize_keyboard: true,
-        one_time_keyboard: true,
-      },
+      reply_markup: contactShareKeyboard(),
     }
   );
 }
@@ -200,6 +223,11 @@ async function handleRegistrationText(chatId, username, text) {
   const trimmed = (text || "").trim();
   if (!trimmed) {
     await bot.sendMessage(chatId, "Por favor escribe una respuesta válida.");
+    return true;
+  }
+
+  if (session.step === REG_STEP.PHONE) {
+    await promptSharePhone(chatId, looksLikePhoneNumber(trimmed));
     return true;
   }
 

@@ -1,22 +1,57 @@
-# Comprendo — Star Lab
+# Comprendo — Preguntas de comprensión por Telegram para docentes
 
 > *Porque el silencio en clase no siempre es sinónimo de comprensión.*
 
----
-
-## Descripción breve del sistema
-
-**Comprendo** es una plataforma educativa orientada a reducir la brecha de comunicación entre docentes y estudiantes. Permite que al finalizar cada clase, el docente envíe automáticamente preguntas de evaluación formativa a los estudiantes a través de **Telegram**, con preguntas generadas por **Inteligencia Artificial** (Zhipu AI / GLM). Los resultados se registran en tiempo real en una base de datos relacional y son accesibles desde un panel web para el docente.
+**Comprendo** es una plataforma educativa que permite a los docentes enviar evaluaciones formativas a sus estudiantes a través de **Telegram**, con preguntas generadas por **Inteligencia Artificial**, y visualizar los resultados en tiempo real desde un **panel web**.
 
 ---
 
-## Objetivo del proyecto
+## Problema / Motivación
 
-Brindar a los docentes una herramienta digital accesible que les permita conocer el nivel de comprensión de sus estudiantes al cierre de cada clase, a través de evaluaciones formativas automatizadas enviadas por Telegram, con el apoyo de Inteligencia Artificial para la generación de preguntas contextualizadas.
+En muchos entornos educativos, los docentes terminan una clase sin saber con certeza si sus estudiantes comprendieron el contenido. Las evaluaciones tradicionales son tardadas, costosas en tiempo y difíciles de analizar de manera inmediata.
+
+**Comprendo** resuelve esto permitiendo que, al finalizar cada sesión, el docente dispare una evaluación formativa de pocos minutos directamente por Telegram —una app que los estudiantes ya usan— sin instalar nada adicional. Los resultados llegan en segundos al panel del docente, cerrando el ciclo de retroalimentación dentro de la misma clase.
 
 ---
 
-## Tecnologías utilizadas
+## Estado actual
+
+> **Validado con usuarios reales — mayo 2026**
+
+- Piloto completado con **10 usuarios reales** (docentes y estudiantes) en mayo de 2026.
+- El flujo completo (creación de lección → generación de preguntas con IA → envío por Telegram → recepción de respuestas → visualización de resultados) funciona de extremo a extremo en producción.
+- Desplegado en **Render** (API + Bot) y **Supabase** (PostgreSQL).
+
+---
+
+## Qué hace el sistema
+
+| Componente | Descripción |
+|---|---|
+| **Bot de Telegram** | Envía preguntas de opción múltiple a los estudiantes y recibe sus respuestas directamente en Telegram. |
+| **Generación con IA** | Genera preguntas contextualizadas a partir del tema de la lección usando Zhipu AI (GLM) con Groq como fallback. |
+| **Panel docente** | Dashboard web donde el docente crea lecciones, gestiona preguntas, lanza evaluaciones y visualiza resultados y estadísticas. |
+| **API principal (.NET)** | Backend que centraliza toda la lógica de negocio, autenticación JWT y persistencia en PostgreSQL. |
+
+**Flujo resumido:**
+
+```
+Docente crea lección         Bot envía pregunta
+en el panel web        →     por Telegram          →    Estudiante responde
+      ↓                            ↓                          ↓
+ Selecciona tema         Core API registra envío       Bot evalúa respuesta
+ y preguntas (IA              y estado                 y da retroalimentación
+ o manual)                        ↓                          ↓
+                          Trigger PostgreSQL         Core API registra
+                          recalcula resultados  ←    respuesta del estudiante
+                                  ↓
+                          Docente consulta
+                          resultados en panel
+```
+
+---
+
+## Stack tecnológico
 
 ### Backend (API principal — .NET)
 | Tecnología | Versión / Detalle |
@@ -43,7 +78,7 @@ Brindar a los docentes una herramienta digital accesible que les permita conocer
 ### Frontend (Panel Docente)
 | Tecnología | Versión / Detalle |
 |---|---|
-| Next.js | 16.2.6 |
+| Next.js | 15+ |
 | React | 19 |
 | TypeScript | 5.7.3 |
 | Tailwind CSS | 4.x |
@@ -60,175 +95,54 @@ Brindar a los docentes una herramienta digital accesible que les permita conocer
 
 ---
 
-## Requisitos previos
+## Arquitectura general
 
-Antes de instalar el proyecto, asegúrate de contar con:
+El sistema sigue una arquitectura de **tres servicios desacoplados** que se comunican entre sí:
 
-- **[.NET 10 SDK](https://dotnet.microsoft.com/download)** — para el backend (API principal)
-- **[Node.js 18+](https://nodejs.org/)** — para el bot de integración
-- **[pnpm](https://pnpm.io/)** — gestor de paquetes para el frontend (`npm install -g pnpm`)
-- **[PostgreSQL](https://www.postgresql.org/)** — base de datos relacional (versión 14 o superior recomendada)
-- **Cuenta en [Zhipu AI / BigModel](https://open.bigmodel.cn/)** — para obtener `ZHIPU_API_KEY` (generación de preguntas con IA)
-- **Cuenta en [Groq](https://groq.com/)** — para `GROQ_API_KEY` (proveedor de IA alternativo/fallback)
-- **Bot de Telegram** — token obtenido desde [@BotFather](https://t.me/BotFather) (`TELEGRAM_BOT_TOKEN`)
+```
+┌─────────────────────┐       JWT        ┌────────────────────────────┐
+│   Frontend          │◄────────────────►│   Backend Core API         │
+│   (Next.js)         │   REST/HTTP      │   (.NET — Clean Architecture)│
+│   Panel docente     │                  │   Puerto: 5253             │
+└─────────────────────┘                  └───────────┬────────────────┘
+                                                     │ EF Core
+                                                     ▼
+                                          ┌─────────────────────┐
+                                          │   PostgreSQL        │
+                                          │   (Base de datos)   │
+                                          └─────────────────────┘
+                                                     ▲
+                                          X-Integration-Api-Key
+                                                     │
+┌─────────────────────┐     Telegram     ┌───────────┴────────────────┐
+│   Estudiantes       │◄────────────────►│   Bot de Integración       │
+│   (Telegram)        │   Bot API        │   (Node.js + Express)      │
+└─────────────────────┘                  │   Puerto: 3000             │
+                                         │   + Zhipu AI / Groq (IA)  │
+                                         └────────────────────────────┘
+```
+
+### Capas del Backend (Clean Architecture)
+
+```
+Comprendo.Api          ← HTTP, Swagger, Middleware, Controllers
+       ↓
+Comprendo.Application  ← CQRS (MediatR), DTOs, Validaciones (FluentValidation)
+       ↓
+Comprendo.Domain       ← Entidades, Enums, Excepciones de dominio
+       ↑
+Comprendo.Infrastructure ← EF Core, Repositorios, JWT, Hash (pgcrypto)
+```
+
+**Patrones aplicados:**
+- **CQRS** con MediatR (comandos y queries separados por feature)
+- **Repositorio** (definido en Application, implementado en Infrastructure)
+- **Excepciones de dominio** mapeadas a `ProblemDetails` HTTP (404, 403, 409)
+- **Pipeline de validación** con FluentValidation antes de cada handler
 
 ---
 
-## Despliegue en producción
-
-Para publicar en **Supabase** (base de datos) y **Render**, sigue la guía detallada:
-
-→ **[docs/DEPLOY.md](docs/DEPLOY.md)**
-
-**Recomendado:** un solo servicio en Render (`render.yaml` + `deploy/Dockerfile`) con API, bot y frontend juntos.  
-**Alternativa:** tres servicios separados (`render.multi-service.yaml`).
-
----
-
-## Instalación del proyecto
-
-### 1. Clonar el repositorio
-
-```bash
-git clone https://github.com/Dmms656/Comprendo.git
-cd Comprendo
-```
-
-### 2. Configurar la base de datos
-
-Aplica el esquema en tu instancia de PostgreSQL (crea la base de datos `COMPRENDO` primero):
-
-```bash
-psql -U postgres -d COMPRENDO -f database/schema.sql
-psql -U postgres -d COMPRENDO -f database/seed.sql   # Datos de prueba (opcional)
-```
-
-### 3. Instalar dependencias del Backend
-
-```bash
-cd backend
-dotnet restore
-```
-
-### 4. Instalar dependencias del Bot de Integración
-
-```bash
-cd integration-bot
-npm install
-```
-
-### 5. Instalar dependencias del Frontend
-
-```bash
-cd frontend
-pnpm install
-```
-
----
-
-## Configuración de variables de entorno
-
-### Backend (`backend/src/Comprendo.Api/appsettings.Local.json`)
-
-Copia la plantilla y edita con tus datos reales:
-
-```bash
-copy backend\src\Comprendo.Api\appsettings.Local.json.example backend\src\Comprendo.Api\appsettings.Local.json
-```
-
-Contenido mínimo de `appsettings.Local.json`:
-
-```json
-{
-  "ConnectionStrings": {
-    "DefaultConnection": "Host=localhost;Port=5432;Database=COMPRENDO;Username=postgres;Password=TU_CLAVE"
-  }
-}
-```
-
-El archivo `appsettings.Development.json` ya incluye la configuración de JWT e integración para desarrollo:
-
-```json
-{
-  "Jwt": {
-    "Secret": "dev_secret_key_minimum_32_characters_long",
-    "Issuer": "Comprendo",
-    "Audience": "Comprendo.Api",
-    "ExpirationMinutes": 480
-  },
-  "Integration": {
-    "ApiKey": "dev-integration-api-key"
-  }
-}
-```
-
-### Bot de Integración (`.env` en `/integration-bot`)
-
-Copia la plantilla y completa los valores:
-
-```bash
-copy integration-bot\.env.example integration-bot\.env
-```
-
-Variables principales:
-
-```env
-PORT=3000
-ZHIPU_API_KEY=tu_api_key_aqui
-ZHIPU_MODEL=glm-4-flash
-GROQ_API_KEY=tu_groq_api_key_aqui
-TELEGRAM_BOT_TOKEN=tu_telegram_bot_token_aqui
-CORE_API_URL=http://localhost:5253
-INTEGRATION_API_KEY=dev-integration-api-key
-```
-
-### Frontend
-
-El frontend Next.js consume las APIs mediante variables de entorno estándar de Next.js. Crea un `.env.local` en `/frontend` si requieres sobrescribir la URL del backend.
-
----
-
-## Cómo ejecutar el sistema
-
-Los tres servicios deben correr simultáneamente en terminales separadas.
-
-### 1. Backend (.NET API)
-
-```bash
-cd backend
-dotnet run --project src/Comprendo.Api
-```
-
-La API queda disponible en: `http://localhost:5253`  
-Swagger UI: `http://localhost:5253` (en modo desarrollo)
-
-### 2. Bot de Integración (Node.js)
-
-```bash
-cd integration-bot
-npm run dev
-```
-
-El bot queda disponible en: `http://localhost:3000`
-
-Para producción:
-
-```bash
-npm start
-```
-
-### 3. Frontend (Next.js)
-
-```bash
-cd frontend
-pnpm dev
-```
-
-El panel docente queda disponible en: `http://localhost:3001` (o el puerto que asigne Next.js)
-
----
-
-## Estructura general del proyecto
+## Estructura del repositorio
 
 ```text
 Comprendo/
@@ -245,85 +159,190 @@ Comprendo/
 │   ├── hooks/                  # Custom hooks de React
 │   ├── lib/                    # Utilidades y configuración
 │   └── styles/                 # Estilos globales
-├── integration-bot/            # Bot de Telegram + generación de preguntas con IA (Node.js)
+├── integration-bot/            # Bot de Telegram + IA (Node.js)
 │   └── src/
 │       ├── index.js            # Servidor Express + lógica del bot de Telegram
-│       └── services/           # Servicio de generación de preguntas con Zhipu AI
+│       └── services/           # Servicio de generación con Zhipu AI / Groq
 ├── database/                   # Scripts SQL de PostgreSQL
 │   ├── schema.sql              # Esquema completo de la base de datos
-│   ├── schema_no_ext.sql       # Esquema sin extensiones (para entornos restringidos)
+│   ├── schema_no_ext.sql       # Esquema sin extensiones (entornos restringidos)
 │   ├── seed.sql                # Datos de prueba/demo
 │   └── queries.sql             # Consultas de utilidad
 ├── docs/                       # Documentación complementaria
+├── deploy/                     # Dockerfiles y scripts de despliegue
 ├── .env.example                # Plantilla de variables de entorno (raíz)
-├── .gitignore
+├── render.yaml                 # Despliegue en Render (servicio único)
+├── render.multi-service.yaml   # Despliegue en Render (tres servicios separados)
 └── README.md
 ```
 
 ---
 
-## Explicación de carpetas importantes
+## Instalación y configuración
 
-| Carpeta | Descripción |
+### Requisitos previos
+
+- **[.NET 10 SDK](https://dotnet.microsoft.com/download)** — para el backend
+- **[Node.js 18+](https://nodejs.org/)** — para el bot de integración
+- **[pnpm](https://pnpm.io/)** — gestor de paquetes del frontend (`npm install -g pnpm`)
+- **[PostgreSQL](https://www.postgresql.org/)** 14 o superior
+- **Cuenta en [Zhipu AI / BigModel](https://open.bigmodel.cn/)** — para la generación de preguntas con IA
+- **Cuenta en [Groq](https://groq.com/)** — proveedor IA de respaldo
+- **Bot de Telegram** — token obtenido desde [@BotFather](https://t.me/BotFather)
+
+---
+
+### 1. Clonar el repositorio
+
+```bash
+git clone https://github.com/Dmms656/Comprendo.git
+cd Comprendo
+```
+
+---
+
+### 2. Configurar la base de datos
+
+```bash
+# Crear la base de datos
+psql -U postgres -c "CREATE DATABASE \"COMPRENDO\";"
+
+# Aplicar esquema (tablas, triggers, funciones, vistas)
+psql -U postgres -d COMPRENDO -f database/schema.sql
+
+# Cargar datos de prueba (opcional)
+psql -U postgres -d COMPRENDO -f database/seed.sql
+```
+
+---
+
+### 3. Configurar variables de entorno
+
+#### Backend (`backend/src/Comprendo.Api/appsettings.Local.json`)
+
+Crea el archivo a partir de la plantilla:
+
+```bash
+copy backend\src\Comprendo.Api\appsettings.Local.json.example backend\src\Comprendo.Api\appsettings.Local.json
+```
+
+Contenido de ejemplo:
+
+```json
+{
+  "ConnectionStrings": {
+    "DefaultConnection": "Host=localhost;Port=5432;Database=COMPRENDO;Username=tu_usuario;Password=tu_contraseña"
+  }
+}
+```
+
+El archivo `appsettings.Development.json` ya incluye configuración de JWT para desarrollo:
+
+```json
+{
+  "Jwt": {
+    "Secret": "clave_secreta_de_al_menos_32_caracteres",
+    "Issuer": "Comprendo",
+    "Audience": "Comprendo.Api",
+    "ExpirationMinutes": 480
+  },
+  "Integration": {
+    "ApiKey": "tu-api-key-de-integracion"
+  }
+}
+```
+
+#### Bot de Integración (`.env` en `/integration-bot`)
+
+```bash
+copy integration-bot\.env.example integration-bot\.env
+```
+
+Variables principales (ver `.env.example` para la lista completa):
+
+```env
+PORT=3000
+ZHIPU_API_KEY=tu_zhipu_api_key_aqui
+ZHIPU_MODEL=glm-4-flash
+GROQ_API_KEY=tu_groq_api_key_aqui
+TELEGRAM_BOT_TOKEN=tu_telegram_bot_token_aqui
+CORE_API_URL=http://localhost:5253
+INTEGRATION_API_KEY=tu-api-key-de-integracion
+```
+
+#### Frontend (`frontend/.env.local`)
+
+El panel Next.js consume las APIs mediante variables de entorno estándar de Next.js. Crea un `.env.local` en `/frontend` si necesitas sobrescribir la URL del backend:
+
+```env
+NEXT_PUBLIC_API_URL=http://localhost:5253
+```
+
+---
+
+### 4. Instalar dependencias
+
+```bash
+# Backend (.NET)
+cd backend
+dotnet restore
+
+# Bot de Integración
+cd integration-bot
+npm install
+
+# Frontend
+cd frontend
+pnpm install
+```
+
+---
+
+## Ejecutar el sistema en local
+
+Los tres servicios deben correr simultáneamente en terminales separadas.
+
+### Backend (.NET API)
+
+```bash
+cd backend
+dotnet run --project src/Comprendo.Api
+```
+
+- API disponible en: `http://localhost:5253`
+- Swagger UI: `http://localhost:5253` (en modo desarrollo)
+
+### Bot de Integración (Node.js)
+
+```bash
+cd integration-bot
+npm run dev        # Modo desarrollo (auto-reload)
+# npm start        # Modo producción
+```
+
+- Bot disponible en: `http://localhost:3000`
+
+### Frontend (Next.js)
+
+```bash
+cd frontend
+pnpm dev
+```
+
+- Panel docente disponible en: `http://localhost:3001`
+
+---
+
+## Despliegue en producción
+
+Para publicar en **Supabase** (base de datos) y **Render**, sigue la guía detallada:
+
+→ **[docs/DEPLOY.md](docs/DEPLOY.md)**
+
+| Opción | Descripción |
 |---|---|
-| `backend/src/Comprendo.Api` | Capa de presentación: controllers HTTP, configuración de Swagger, middleware de errores y autenticación JWT |
-| `backend/src/Comprendo.Application` | Lógica de negocio: comandos y queries (CQRS con MediatR), DTOs y validaciones con FluentValidation |
-| `backend/src/Comprendo.Domain` | Entidades puras, enums y excepciones de dominio (sin dependencias externas) |
-| `backend/src/Comprendo.Infrastructure` | Implementación de repositorios, contexto EF Core, servicios de JWT y hash de contraseñas |
-| `frontend/app` | Rutas y páginas del panel docente (Next.js App Router): login, grados, cursos, lecciones |
-| `frontend/components` | Componentes de página (dashboard, lecciones, estudiantes, resultados) y componentes UI base (Radix UI) |
-| `integration-bot/src` | Servidor Express que orquesta el bot de Telegram: envía preguntas, recibe respuestas, registra datos en el Core API |
-| `integration-bot/src/services` | Servicio de integración con Zhipu AI (GLM) y Groq para generación de preguntas |
-| `database` | Scripts SQL para crear y poblar la base de datos PostgreSQL |
-| `docs` | Documentación técnica adicional del proyecto |
-
----
-
-## Funcionalidades principales
-
-1. **Gestión de docentes y estudiantes**: registro de usuarios con roles diferenciados (`ADMIN`, `DOCENTE`, `ESTUDIANTE`).
-2. **Estructura académica**: gestión de años lectivos, niveles, paralelos, cursos y materias.
-3. **Asignación docente-curso-materia**: cada docente puede estar asignado a múltiples materias y cursos.
-4. **Creación de lecciones**: el docente crea lecciones con título, descripción, tema y número de preguntas.
-5. **Generación de preguntas con IA**: el sistema genera preguntas de opción múltiple (A–D) a partir del tema de la lección usando Zhipu AI (GLM) con Groq como fallback.
-6. **Creación manual de preguntas**: el docente puede crear preguntas manualmente (opción múltiple, verdadero/falso, respuesta corta, abierta).
-7. **Envío de evaluaciones por Telegram**: el bot envía las preguntas de la lección a los estudiantes mediante Telegram Bot API, de forma individual o secuencial (todas las preguntas de la lección una por una).
-8. **Recepción de respuestas**: los estudiantes responden directamente en Telegram enviando la letra de la opción (A, B, C o D).
-9. **Retroalimentación inmediata**: el bot responde al estudiante indicando si su respuesta fue correcta o incorrecta.
-10. **Registro automático de resultados**: cada respuesta se registra en la base de datos con triggers PostgreSQL que recalculan automáticamente los resultados consolidados.
-11. **Panel de resultados**: el docente visualiza estadísticas de participación y resultados por lección en el panel web.
-12. **Vinculación de estudiantes vía Telegram**: los estudiantes se registran en el bot con `/start` o usando un código de acceso de la materia.
-13. **Auditoría**: registro de eventos y sesiones de usuarios.
-
----
-
-## Flujo básico de uso
-
-```
-Docente crea lección         Bot envía pregunta
-en el panel web        →     por Telegram          →    Estudiante responde
-      ↓                            ↓                          ↓
- Selecciona tema         Core API registra envío       Bot evalúa respuesta
- y preguntas (IA              y estado                 y da retroalimentación
- o manual)                        ↓                          ↓
-                          Trigger PostgreSQL         Core API registra
-                          recalcula resultados  ←    respuesta del estudiante
-                                  ↓
-                          Docente consulta
-                          resultados en panel
-```
-
-**Paso a paso detallado:**
-
-1. El docente inicia sesión en el panel web (`POST /api/auth/login`).
-2. Crea una lección con tema y número de preguntas.
-3. Genera preguntas con IA o las crea manualmente.
-4. Envía la evaluación — el backend notifica al bot de integración.
-5. El bot de integración envía cada pregunta al chat de Telegram del estudiante.
-6. El estudiante responde con A, B, C o D.
-7. El bot registra la respuesta en el Core API (`.NET`).
-8. Un trigger PostgreSQL recalcula automáticamente el resultado consolidado de la lección.
-9. El docente consulta el panel para ver participación y resultados.
+| **Recomendada** | Un solo servicio en Render (`render.yaml` + `deploy/Dockerfile`) con API, bot y frontend juntos |
+| **Alternativa** | Tres servicios separados (`render.multi-service.yaml`) |
 
 ---
 
@@ -374,7 +393,7 @@ en el panel web        →     por Telegram          →    Estudiante responde
 | POST | `/api/integracion/vincular-estudiante` | Vincular estudiante por teléfono | API Key |
 | POST | `/api/integracion/vincular-estudiante-codigo` | Vincular estudiante por código de acceso | API Key |
 
-> La autenticación de integración usa el header: `X-Integration-Api-Key: dev-integration-api-key`
+> La autenticación de integración usa el header: `X-Integration-Api-Key: <tu-api-key>`
 
 ### Bot de Integración (`http://localhost:3000`)
 
@@ -382,71 +401,13 @@ en el panel web        →     por Telegram          →    Estudiante responde
 |---|---|---|
 | GET | `/health` | Estado del servicio y del bot de Telegram |
 | GET | `/api/bot-info` | Información del bot (username, estado) |
-| POST | `/api/questions/generate` | Generar pregunta con IA (usado por el frontend) |
+| POST | `/api/questions/generate` | Generar pregunta con IA |
 | POST | `/start-class` | Enviar una pregunta individual a un estudiante |
 | POST | `/start-evaluation` | Enviar todas las preguntas de una lección secuencialmente |
 
 ---
 
-## Scripts o comandos útiles
-
-### Backend
-
-```bash
-# Restaurar paquetes NuGet
-cd backend && dotnet restore
-
-# Compilar el proyecto
-cd backend && dotnet build
-
-# Ejecutar en desarrollo (con Swagger)
-cd backend && dotnet run --project src/Comprendo.Api
-```
-
-### Bot de Integración
-
-```bash
-# Modo desarrollo (con auto-reload)
-cd integration-bot && npm run dev
-
-# Modo producción
-cd integration-bot && npm start
-```
-
-### Frontend
-
-```bash
-# Modo desarrollo
-cd frontend && pnpm dev
-
-# Compilar para producción
-cd frontend && pnpm build
-
-# Iniciar en modo producción
-cd frontend && pnpm start
-
-# Linting
-cd frontend && pnpm lint
-```
-
----
-
-## Configuración de base de datos
-
-El sistema utiliza **PostgreSQL** con un esquema relacional completo.
-
-### Aplicar el esquema
-
-```bash
-# Crear la base de datos
-psql -U postgres -c "CREATE DATABASE \"COMPRENDO\";"
-
-# Aplicar esquema (tablas, triggers, funciones, vistas)
-psql -U postgres -d COMPRENDO -f database/schema.sql
-
-# Cargar datos de prueba (opcional, para desarrollo)
-psql -U postgres -d COMPRENDO -f database/seed.sql
-```
+## Base de datos
 
 ### Tablas principales
 
@@ -463,16 +424,16 @@ psql -U postgres -d COMPRENDO -f database/seed.sql
 | `docente_curso_materia` | Asignación de docente a curso y materia |
 | `estudiante_curso` | Matrícula de estudiantes en cursos |
 | `lecciones` | Clases/evaluaciones creadas por el docente |
-| `preguntas` | Preguntas de cada lección (manuales o generadas por IA) |
+| `preguntas` | Preguntas de cada lección (manuales o por IA) |
 | `opciones_pregunta` | Opciones A–D de cada pregunta |
 | `envios_telegram` | Registro de mensajes enviados por Telegram |
 | `respuestas_estudiantes` | Respuestas de los estudiantes |
 | `resultados_leccion` | Resultado consolidado por estudiante y lección |
-| `solicitudes_ia` | Auditoría de las solicitudes a APIs de IA |
+| `solicitudes_ia` | Auditoría de solicitudes a APIs de IA |
 | `sesiones_usuario` | Sesiones activas (tokens JWT) |
 | `auditoria_eventos` | Log de eventos del sistema |
 
-### Triggers y funciones automáticas
+### Triggers automáticos
 
 - **`tg_respuesta_actualiza_resultado`**: Al registrar una respuesta, recalcula automáticamente el resultado consolidado del estudiante en la lección.
 - **`tg_sync_numero_preguntas_leccion`**: Mantiene sincronizado el campo `numero_preguntas` en `lecciones` al insertar/eliminar preguntas.
@@ -493,8 +454,6 @@ psql -U postgres -d COMPRENDO -f database/seed.sql
 
 El backend usa **JWT Bearer Tokens** para proteger los endpoints del docente y administrador.
 
-**Flujo de autenticación:**
-
 1. El docente hace `POST /api/auth/login` con email y contraseña.
 2. El servidor retorna un `token` JWT.
 3. El cliente incluye el token en todas las peticiones protegidas:
@@ -502,10 +461,7 @@ El backend usa **JWT Bearer Tokens** para proteger los endpoints del docente y a
    Authorization: Bearer <token>
    ```
 
-**En Swagger UI:**
-1. Ejecutar `POST /api/auth/login`
-2. Copiar el valor de `token`
-3. Hacer clic en **Authorize** → introducir `Bearer <token>`
+**En Swagger UI:** ejecutar `POST /api/auth/login` → copiar el `token` → clic en **Authorize** → introducir `Bearer <token>`.
 
 ### Roles del sistema
 
@@ -513,86 +469,47 @@ El backend usa **JWT Bearer Tokens** para proteger los endpoints del docente y a
 |---|---|---|
 | `ADMIN` | Administrador del sistema | Gestión de catálogos (años lectivos, niveles, etc.) |
 | `DOCENTE` | Docente registrado | Panel docente, lecciones, preguntas, estudiantes, resultados |
-| `ESTUDIANTE` | Estudiante | Solo interactúa por Telegram (no tiene acceso al panel web) |
-
-### Integración (Bot de Integración → Core API)
-
-Los endpoints bajo `/api/integracion` **no usan JWT**. En su lugar requieren:
-
-```http
-X-Integration-Api-Key: dev-integration-api-key
-```
-
-Esto permite que el bot de Node.js se comunique con el Core API de .NET sin necesitar credenciales de usuario.
+| `ESTUDIANTE` | Estudiante | Solo interactúa por Telegram (sin acceso al panel web) |
 
 ### Credenciales demo (tras aplicar `seed.sql`)
 
-| Concepto | Valor |
+| Concepto | Valor de ejemplo |
 |---|---|
 | Email del docente | `docente@comprendo.local` |
 | Contraseña | `comprendo123` |
 
-
-
----
-
-## Arquitectura general del sistema
-
-El sistema sigue una arquitectura de **tres servicios desacoplados** que se comunican entre sí:
-
-```
-┌─────────────────────┐       JWT        ┌────────────────────────────┐
-│   Frontend          │◄────────────────►│   Backend Core API         │
-│   (Next.js)         │   REST/HTTP      │   (.NET — Clean Architecture)│
-│   Panel docente     │                  │   Puerto: 5253             │
-└─────────────────────┘                  └───────────┬────────────────┘
-                                                     │ EF Core
-                                                     ▼
-                                          ┌─────────────────────┐
-                                          │   PostgreSQL        │
-                                          │   (Base de datos)   │
-                                          └─────────────────────┘
-                                                     ▲
-                                          X-Integration-Api-Key
-                                                     │
-┌─────────────────────┐     Telegram     ┌───────────┴────────────────┐
-│   Estudiantes       │◄────────────────►│   Bot de Integración       │
-│   (Telegram)        │   Bot API        │   (Node.js + Express)      │
-└─────────────────────┘                  │   Puerto: 3000             │
-                                         │   + Zhipu AI / Groq (IA)  │
-                                         └────────────────────────────┘
-```
-
-### Capas del Backend (Clean Architecture)
-
-```
-Comprendo.Api          ← HTTP, Swagger, Middleware, Controllers
-       ↓
-Comprendo.Application  ← CQRS (MediatR), DTOs, Validaciones (FluentValidation)
-       ↓
-Comprendo.Domain       ← Entidades, Enums, Excepciones de dominio
-       ↑
-Comprendo.Infrastructure ← EF Core, Repositorios, JWT, Hash (pgcrypto)
-```
-
-**Patrones aplicados:**
-- **CQRS** con MediatR (comandos y queries separados por feature)
-- **Repositorio** (definido en Application, implementado en Infrastructure)
-- **Excepciones de dominio** mapeadas a `ProblemDetails` HTTP (404, 403, 409)
-- **Pipeline de validación** con FluentValidation antes de cada handler
+> ⚠️ Estas credenciales son solo para el entorno de desarrollo/demo. Cámbialas antes de publicar en producción.
 
 ---
 
-## Autores / Colaboradores
+## Funcionalidades principales
 
-Este proyecto fue desarrollado por el equipo **Star Lab**:
+1. **Gestión de docentes y estudiantes**: registro con roles diferenciados (`ADMIN`, `DOCENTE`, `ESTUDIANTE`).
+2. **Estructura académica**: años lectivos, niveles, paralelos, cursos y materias.
+3. **Asignación docente-curso-materia**: cada docente puede estar asignado a múltiples materias.
+4. **Creación de lecciones**: título, descripción, tema y número de preguntas.
+5. **Generación de preguntas con IA**: opción múltiple (A–D) a partir del tema, con Zhipu AI + Groq de fallback.
+6. **Creación manual de preguntas**: opción múltiple, verdadero/falso, respuesta corta, abierta.
+7. **Envío de evaluaciones por Telegram**: el bot envía las preguntas individualmente o en lote.
+8. **Recepción de respuestas**: los estudiantes responden con A, B, C o D directamente en Telegram.
+9. **Retroalimentación inmediata**: el bot responde al estudiante indicando si acertó o no.
+10. **Registro automático de resultados**: triggers PostgreSQL recalculan resultados en tiempo real.
+11. **Panel de resultados**: estadísticas de participación y resultados por lección.
+12. **Vinculación por Telegram**: los estudiantes se registran con `/start` o con un código de acceso de la materia.
+13. **Auditoría**: registro de eventos y sesiones de usuario.
+
+---
+
+## Equipo
+
+Proyecto desarrollado por el equipo **Star Lab**:
 
 | Nombre | Rol |
 |---|---|
-| Doménica Arcos | Colaboradora |
-| Dana Bahamonde | Colaboradora |
-| Dylan Medina | Colaborador |
-| Juan Morales | Colaborador |
+| Dylan Medina | Desarrollador — Líder de proyecto |
+| Doménica Arcos | Desarrolladora |
+| Dana Bahamonde | Desarrolladora |
+| Juan Morales | Desarrollador |
 
 ---
 

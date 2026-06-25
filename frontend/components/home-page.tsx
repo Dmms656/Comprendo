@@ -276,6 +276,14 @@ export function HomePage() {
             <div className="w-16 h-1 bg-[#F1D87C] mx-auto mt-4 rounded-full" />
           </div>
 
+          <div className="flex justify-center mb-8">
+            <img
+              src="/images/logotipo-puce-80_color_horizontal.png"
+              alt="Pontificia Universidad Católica del Ecuador — PUCE 80 años"
+              className="h-16 md:h-20 w-auto max-w-full object-contain"
+            />
+          </div>
+
           <div className="bg-white/70 border border-[#F1D87C]/25 rounded-3xl p-8 lg:p-10 shadow-sm space-y-5 text-[#5B5B5B] text-base leading-relaxed">
             <p>
               Este proyecto, denominado Comprendo, fue desarrollado por los estudiantes: Domenica Arcos, Dana Bahamonde, Dylan Medina y Juan Morales, bajo la tutoría del Ing. Francisco Rodríguez, profesor tutor.
@@ -290,7 +298,16 @@ export function HomePage() {
               Agradecemos asimismo a la docente Jakeline Muñoz, quien colaboró en la validación de este proyecto.
             </p>
             <p>
-              Este proyecto se distribuye como software libre a través de GitHub, e incluye el manual de usuario y el video tutorial correspondientes, disponibles en los enlaces señalados en esta página.
+              Este proyecto se distribuye como software libre a través de{" "}
+              <a
+                href="https://github.com/comprendopuce/Comprendo"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[#7297C9] hover:text-[#9E5A78] font-semibold underline underline-offset-2 transition-colors"
+              >
+                GitHub
+              </a>
+              , e incluye el manual de usuario y el video tutorial correspondientes, disponibles en los enlaces señalados en esta página.
             </p>
           </div>
         </div>

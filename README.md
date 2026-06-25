@@ -195,7 +195,7 @@ Comprendo/
 ### 1. Clonar el repositorio
 
 ```bash
-git clone https://github.com/Dmms656/Comprendo.git
+git clone https://github.com/comprendopuce/Comprendo.git
 cd Comprendo
 ```
 

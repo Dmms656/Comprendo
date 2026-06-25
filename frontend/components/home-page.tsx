@@ -2,7 +2,7 @@
 
 import { useEffect } from "react"
 import { PublicLayout } from "./public-layout"
-import { BarChart3, Target, Zap, TrendingUp, Sparkles, BookOpen, Heart, ArrowRight } from "lucide-react"
+import { BarChart3, Target, Zap, TrendingUp, Sparkles, BookOpen, Heart, ArrowRight, GraduationCap } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { wakeServices } from "@/lib/api"
 import { useAuth } from "@/hooks/useAuth"
@@ -259,6 +259,39 @@ export function HomePage() {
                 </p>
               </div>
             </div>
+          </div>
+        </div>
+      </section>
+
+      {/* SECTION 5 - RECONOCIMIENTOS */}
+      <section className="bg-gradient-to-b from-[#fdfdf1] to-[#f5efd3] py-20 px-8 border-t border-[#F1D87C]/20">
+        <div className="max-w-3xl mx-auto">
+          <div className="text-center mb-12">
+            <div className="inline-flex items-center justify-center p-3 bg-[#9E5A78]/10 rounded-2xl mb-4">
+              <GraduationCap className="w-7 h-7 text-[#9E5A78]" />
+            </div>
+            <h2 className="text-[#9E5A78] font-black text-3xl tracking-tight">
+              Sobre el proyecto
+            </h2>
+            <div className="w-16 h-1 bg-[#F1D87C] mx-auto mt-4 rounded-full" />
+          </div>
+
+          <div className="bg-white/70 border border-[#F1D87C]/25 rounded-3xl p-8 lg:p-10 shadow-sm space-y-5 text-[#5B5B5B] text-base leading-relaxed">
+            <p>
+              Este proyecto, denominado Comprendo, fue desarrollado por los estudiantes: Domenica Arcos, Dana Bahamonde, Dylan Medina y Juan Morales, bajo la tutoría del Ing. Francisco Rodríguez, profesor tutor.
+            </p>
+            <p>
+              El proyecto se realizó en el marco de la asignatura de Emprendimiento Tecnológico, con la metodología de Aprendizaje-Servicio, en la Pontificia Universidad Católica del Ecuador (PUCE).
+            </p>
+            <p>
+              Agradecemos de manera especial a la Coordinación de Aprendizaje-Servicio de la PUCE por su acompañamiento; sin su apoyo no habría sido posible esta iniciativa innovadora dentro de la universidad. Extendemos también nuestro agradecimiento a la Unidad Educativa Fe y Alegría por las facilidades brindadas para el desarrollo de este proyecto.
+            </p>
+            <p>
+              Agradecemos asimismo a la docente Jakeline Muñoz, quien colaboró en la validación de este proyecto.
+            </p>
+            <p>
+              Este proyecto se distribuye como software libre a través de GitHub, e incluye el manual de usuario y el video tutorial correspondientes, disponibles en los enlaces señalados en esta página.
+            </p>
           </div>
         </div>
       </section>

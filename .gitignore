@@ -1,12 +1,59 @@
-node_modules/
-.env
-**/appsettings.Local.json
-data/
-npm-debug.log*
-.DS_Store
+# ============================================================
+# Comprendo — .gitignore
+# ============================================================
 
-# .NET
+# ── Credenciales y variables de entorno ──────────────────────
+# Los archivos .env.example SÍ se versionan (son plantillas sin secretos).
+# Los archivos con valores reales NO deben subirse nunca.
+.env
+.env.local
+.env.*.local
+**/.env
+**/.env.local
+**/.env.*.local
+
+# ── Node.js ──────────────────────────────────────────────────
+node_modules/
+**/node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.pnpm-store/
+
+# ── Next.js (frontend) ───────────────────────────────────────
+frontend/.next/
+frontend/out/
+frontend/.vercel/
+frontend/.turbo/
+
+# ── .NET (backend) ───────────────────────────────────────────
 backend/**/bin/
 backend/**/obj/
 backend/**/*.user
 backend/.vs/
+**/appsettings.Local.json
+
+# ── Datos locales y caché ────────────────────────────────────
+data/
+.cache/
+coverage/
+*.log
+logs/
+
+# ── IDEs y editores ──────────────────────────────────────────
+.vs/
+.idea/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# ── Sistemas operativos ──────────────────────────────────────
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# ── Docker (sobreescrituras locales) ─────────────────────────
+docker-compose.override.yml
